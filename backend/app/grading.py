@@ -4,31 +4,126 @@ import os
 import json
 import logging
 import re
+from typing import Optional, Dict, Any
+from functools import lru_cache
+import time
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Constants
+MAX_RETRIES = 3
+RETRY_BACKOFF_FACTOR = 0.5
+CACHE_SIZE = 100
+MAX_CODE_LENGTH = 20000  # Maximum allowed code length
+# ALLOWED_CHARS = set("#abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_+-=[]{}()<>.,;:!@#$%^&*|\\/\"' \n\t")
+
 load_dotenv()
+
+def validate_code_input(code: str) -> tuple[bool, str]:
+    """
+    Validate the input code for basic requirements.
+    Returns (is_valid, error_message)
+    """
+    if not code or not isinstance(code, str):
+        return False, "Code must be a non-empty string"
+    
+    if len(code) > MAX_CODE_LENGTH:
+        return False, f"Code exceeds maximum length of {MAX_CODE_LENGTH} characters"
+    
+    return True, ""
+
+def create_retry_session() -> requests.Session:
+    """
+    Create a requests session with retry logic.
+    """
+    session = requests.Session()
+    retry_strategy = Retry(
+        total=MAX_RETRIES,
+        backoff_factor=RETRY_BACKOFF_FACTOR,
+        status_forcelist=[500, 502, 503, 504],
+        allowed_methods=["POST"]  # Explicitly allow POST method retries
+    )
+    adapter = HTTPAdapter(max_retries=retry_strategy)
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+    return session
+
+@lru_cache(maxsize=CACHE_SIZE)
+def get_cached_response(code: str) -> Optional[tuple[float, str]]:
+    """
+    Get cached response for previously graded code.
+    """
+    return None  # Cache will be populated after successful API calls
+
+def validate_response_structure(data: dict) -> tuple[bool, str]:
+    """
+    Validate that the response contains all required fields with correct types.
+    Returns (is_valid, error_message)
+    """
+    required_fields = {
+        "grade": (int, float),
+        "feedback": dict
+    }
+    
+    feedback_fields = {
+        "code_quality": str,
+        "bugs": list,
+        "improvements": list,
+        "best_practices": list
+    }
+    
+    # Check top-level fields
+    for field, expected_type in required_fields.items():
+        if field not in data:
+            return False, f"Missing required field: {field}"
+        if not isinstance(data[field], expected_type):
+            return False, f"Invalid type for {field}: expected {expected_type.__name__}"
+    
+    # Check feedback fields
+    feedback = data["feedback"]
+    for field, expected_type in feedback_fields.items():
+        if field not in feedback:
+            return False, f"Missing required feedback field: {field}"
+        if not isinstance(feedback[field], expected_type):
+            return False, f"Invalid type for feedback.{field}: expected {expected_type.__name__}"
+    
+    return True, ""
 
 def extract_json_from_text(text: str) -> dict:
     """
     Try to extract JSON from text, even if it's embedded in other text.
+    Uses a more precise regex pattern to match JSON structures.
     """
     # First try direct JSON parsing
     try:
-        return json.loads(text)
+        data = json.loads(text)
+        is_valid, error_msg = validate_response_structure(data)
+        if is_valid:
+            return data
+        logger.warning(f"Invalid response structure: {error_msg}")
     except json.JSONDecodeError:
-        # Try to find JSON-like structure in the text
-        json_pattern = r'\{[\s\S]*\}'
-        match = re.search(json_pattern, text)
-        if match:
-            try:
-                return json.loads(match.group())
-            except json.JSONDecodeError:
-                pass
+        pass
     
-    # If no JSON found, create a structured response
+    # Try to find JSON-like structure in the text with a more precise pattern
+    # This pattern looks for a complete JSON object with balanced braces
+    json_pattern = r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}'
+    match = re.search(json_pattern, text)
+    if match:
+        try:
+            data = json.loads(match.group())
+            is_valid, error_msg = validate_response_structure(data)
+            if is_valid:
+                return data
+            logger.warning(f"Invalid response structure in extracted JSON: {error_msg}")
+        except json.JSONDecodeError:
+            logger.warning("Failed to parse extracted JSON structure")
+    
+    # If no valid JSON found, create a structured response
+    logger.error("Could not extract valid JSON from response")
     return {
         "grade": 0,
         "feedback": {
@@ -41,20 +136,32 @@ def extract_json_from_text(text: str) -> dict:
 
 def grade_code(code: str) -> tuple[float, str]:
     """
-    Grade Python code using Deepseek AI API
+    Grade Python code using AI API
     Returns a tuple of (grade, feedback)
     """
-    api_key = os.getenv("DEEPSEEK_API_KEY")
-    endpoint = os.getenv("DEEPSEEK_API_ENDPOINT")
+    # Input validation
+    is_valid, error_msg = validate_code_input(code)
+    if not is_valid:
+        logger.error(f"Invalid code input: {error_msg}")
+        return 0.0, f"Error: {error_msg}"
+
+    # Check cache
+    cached_result = get_cached_response(code)
+    if cached_result is not None:
+        logger.info("Returning cached response")
+        return cached_result
+
+    api_key = os.getenv("AI_API_KEY")
+    endpoint = os.getenv("AI_API_ENDPOINT")
     
     if not api_key or not endpoint:
         logger.error("Missing API configuration")
-        return 0.0, "Error: Deepseek API configuration missing"
+        return 0.0, "Error: The AI API configuration is missing"
     
     logger.info(f"Using API endpoint: {endpoint}")
     
     # Prepare the prompt for code analysis
-    prompt = f"""As a CS professor, please analyze this Python code and provide:
+    prompt = f"""As a Computer Science Professor Assistant, please analyze this Python code and provide:
 1. A grade (0-100)
 2. Detailed feedback including:
    - Code quality assessment
@@ -81,43 +188,53 @@ IMPORTANT: Your response MUST be in valid JSON format with this exact structure:
 Do not include any text before or after the JSON structure."""
 
     try:
-        logger.info("Sending request to Deepseek API...")
+        logger.info("Sending request to AI API...")
+        print("AI_MODEL:", os.getenv("AI_MODEL"))
         request_payload = {
-            "model": "deepseek-chat",
+            "model": os.getenv("AI_MODEL"),
             "messages": [
-                {"role": "system", "content": "You are a CS professor grading Python code. You must respond in valid JSON format only."},
+                {"role": "system", "content": "You are a Computer Science Professor Assistant grading Python code. You must respond in valid JSON format only."},
                 {"role": "user", "content": prompt}
             ],
             "temperature": 0.7,
-            "max_tokens": 500, #Adjust this to increase or decrease the amount of tokens used for better performance over price
-            "stream": False
+            "max_tokens": 500,
+            "stream": False,
+            "response_format": { "type": "json_object" }  # Force JSON response
         }
-        logger.info(f"Request payload: {json.dumps(request_payload, indent=2)}")
+        # logger.info(f"Request payload: {json.dumps(request_payload, indent=2)}")
         
-        response = requests.post(
+        # Use retry session for the request
+        session = create_retry_session()
+        response = session.post(
             endpoint,
             json=request_payload,
             headers={
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json",
-                "Accept": "application/json"
+                "Accept": "application/json",
+                "HTTP-Referer": "http://localhost:8000",  # Required by OpenRouter
+                "X-Title": "Code Grading System"  # Required by OpenRouter
             },
-            timeout=30
+            timeout=(10, 30)  # (connect timeout, read timeout)
         )
         
         logger.info(f"Response status: {response.status_code}")
-        logger.info(f"Response headers: {dict(response.headers)}")
+        # logger.info(f"Response headers: {dict(response.headers)}")
         
         if response.status_code != 200:
-            logger.error(f"API Error Response: {response.text}")
+            error_msg = f"API Error Response: {response.text}"
+            logger.error(error_msg)
             return 0.0, f"Error: API returned status {response.status_code}. Please check the logs for details."
             
         response.raise_for_status()
         result = response.json()
         
+        # Add detailed logging
+        # logger.info(f"Raw API response: {json.dumps(result, indent=2)}")
+        
         # Extract the AI's response
         ai_response = result.get("choices", [{}])[0].get("message", {}).get("content", "{}")
-        logger.info(f"Raw AI response: {ai_response}")
+        logger.info(f"Extracted AI response: {ai_response}")
         
         # Try to parse the response
         feedback_data = extract_json_from_text(ai_response)
@@ -139,6 +256,11 @@ Best Practices:
 {chr(10).join(f'- {practice}' for practice in feedback.get('best_practices', ['No best practices noted']))}
 """
         logger.info("Successfully processed AI response")
+        
+        # Cache the successful response
+        get_cached_response.cache_clear()  # Clear old cache entries if needed
+        get_cached_response(code)  # Cache the new response
+        
         return grade, formatted_feedback.strip()
             
     except requests.exceptions.ConnectionError as e:
@@ -149,7 +271,7 @@ Best Practices:
         return 0.0, "Error: Request to Deepseek API timed out. Please try again."
     except requests.exceptions.RequestException as e:
         logger.error(f"Request error: {str(e)}")
-        return 0.0, f"Error connecting to Deepseek API: {str(e)}"
+        return 0.0, f"Error connecting to AI API: {str(e)}"
     except Exception as e:
         logger.error(f"Unexpected error: {str(e)}")
         return 0.0, f"An unexpected error occurred: {str(e)}"

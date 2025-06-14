@@ -19,6 +19,7 @@ build/
 .streamlit/
 logs/
 **/*.log
+app.log
 
 # Jupyter (in case)
 .ipynb_checkpoints
@@ -38,6 +39,7 @@ Thumbs.db
 *.tar
 *.log
 docker-compose.override.yml
+pgdata/
 
 # VSCode / IDE
 .vscode/
@@ -57,6 +59,24 @@ nosetests.xml
 coverage.xml
 test-results/
 
+# Frontend specific
+frontend/venv/
+frontend/__pycache__/
+frontend/*.pyc
+frontend/.streamlit/
+
+# Backend specific
+backend/venv/
+backend/__pycache__/
+backend/*.pyc
+backend/app/__pycache__/
+backend/app/*.pyc
+
 # Misc
 *.bak
 *.tmp
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.ico
