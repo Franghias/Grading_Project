@@ -118,23 +118,49 @@ st.markdown('<div class="container mx-auto px-4 py-8">', unsafe_allow_html=True)
 st.markdown('<div class="card">', unsafe_allow_html=True)
 st.markdown('<h2 class="text-xl font-medium mb-6">Sign Up</h2>', unsafe_allow_html=True)
 
+# Add requirements information
+st.markdown("""
+    <div style="background-color: #f8f9fa; padding: 1rem; border-radius: 0.375rem; margin-bottom: 1rem;">
+        <h3 style="color: #2d3748; margin-bottom: 0.5rem;">Requirements:</h3>
+        <ul style="color: #4a5568; margin: 0; padding-left: 1.5rem;">
+            <li>ID must be exactly 8 digits</li>
+            <li>Email must be valid</li>
+            <li>Password must be at least 8 characters long</li>
+        </ul>
+    </div>
+""", unsafe_allow_html=True)
+
 with st.form("signup_form"):
     name = st.text_input("Full Name", placeholder="Enter your full name")
+    user_id = st.text_input("ID", placeholder="Enter your 8-digit ID")
     email = st.text_input("Email", placeholder="Enter your email")
     password = st.text_input("Password", type="password", placeholder="Enter your password")
     confirm_password = st.text_input("Confirm Password", type="password", placeholder="Confirm your password")
+    
+    # Add role selection
+    role = st.radio(
+        "Select your role",
+        ["Student", "Professor"],
+        help="Professors can create custom grading code and grade submissions"
+    )
+    
     submit_button = st.form_submit_button("Sign Up")
 
     if submit_button:
-        if name and email and password and confirm_password:
-            if password != confirm_password:
+        if name and user_id and email and password and confirm_password:
+            # Validate user ID
+            if not user_id.isdecimal() or len(user_id) != 8:
+                st.error("ID must be exactly 8 digits")
+            elif password != confirm_password:
                 st.error("Passwords do not match")
             else:
                 try:
                     signup_data = {
                         "name": name,
+                        "user_id": user_id,
                         "email": email,
-                        "password": password
+                        "password": password,
+                        "is_professor": role == "Professor"  # Set is_professor based on role selection
                     }
                     print(f"Sending signup request with data: {signup_data}")
                     response = requests.post(
@@ -150,7 +176,13 @@ with st.form("signup_form"):
                     # Redirect to login page
                     st.switch_page("login.py")
                 except requests.RequestException as e:
-                    st.error(f"Signup failed: {str(e)}")
+                    error_msg = str(e)
+                    if "User ID already registered" in error_msg:
+                        st.error("This ID is already registered")
+                    elif "Email already registered" in error_msg:
+                        st.error("This email is already registered")
+                    else:
+                        st.error(f"Signup failed: {error_msg}")
         else:
             st.error("Please fill in all fields")
 

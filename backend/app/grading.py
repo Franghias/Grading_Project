@@ -234,7 +234,7 @@ Do not include any text before or after the JSON structure."""
         
         # Extract the AI's response
         ai_response = result.get("choices", [{}])[0].get("message", {}).get("content", "{}")
-        logger.info(f"Extracted AI response: {ai_response}")
+        # logger.info(f"Extracted AI response: {ai_response}")
         
         # Try to parse the response
         feedback_data = extract_json_from_text(ai_response)

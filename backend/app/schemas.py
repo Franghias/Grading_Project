@@ -1,66 +1,86 @@
-from pydantic import BaseModel, Field, validator, EmailStr
-from typing import Optional
+from pydantic import BaseModel, Field, validator, EmailStr, ConfigDict
+from typing import Optional, List, ForwardRef
 from datetime import datetime
 
-class SubmissionCreate(BaseModel):
-    """Pydantic model for creating a new student submission."""
-    student_id: str = Field(..., max_length=8)
-    code: str = Field(...)
+class ClassBase(BaseModel):
+    name: str
+    code: str
+    description: Optional[str] = None
+    prerequisites: Optional[str] = None
+    learning_objectives: Optional[str] = None
 
-    @validator("student_id")
-    def validate_student_id(cls, v):
-        if not v.isdecimal():
-            raise ValueError("Student ID must be a number")
-        return v
-
-class SubmissionResponse(BaseModel):
-    """Pydantic model for returning submission details, including grade and feedback."""
-    id: int = Field(...)
-    student_id: str = Field(..., max_length=8)
-    code: str = Field(...)
-    grade: float | None = None
-    feedback: str | None = None
-
-    class Config:
-        orm_mode = True
-
-    @validator("student_id")
-    def validate_student_id(cls, v):
-        if not v.isdecimal():
-            raise ValueError("Student ID must be a number")
-        return v
+class ClassCreate(ClassBase):
+    pass  # No additional fields needed as they're handled by the model
 
 class UserBase(BaseModel):
     email: EmailStr
     name: str
-
-    class Config:
-        from_attributes = True
+    user_id: str
 
 class UserCreate(UserBase):
     password: str
+    is_professor: bool = False
+
+class AssignmentBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    class_id: int
+
+class AssignmentCreate(AssignmentBase):
+    pass
+
+class Assignment(AssignmentBase):
+    id: int
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+class Class(ClassBase):
+    id: int
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    professors: List["User"] = Field(default_factory=list)
+    students: List["User"] = Field(default_factory=list)
+    assignments: List[Assignment] = Field(default_factory=list)
+
+    model_config = ConfigDict(from_attributes=True)
 
 class User(UserBase):
     id: int
     is_active: bool
+    is_professor: bool
     created_at: datetime
     updated_at: Optional[datetime] = None
+    teaching_classes: List["Class"] = Field(default_factory=list)
+    enrolled_classes: List["Class"] = Field(default_factory=list)
 
-    class Config:
-        from_attributes = True
-        json_encoders = {
-            datetime: lambda v: v.isoformat()
-        }
-        schema_extra = {
-            "example": {
-                "id": 1,
-                "email": "user@example.com",
-                "name": "John Doe",
-                "is_active": True,
-                "created_at": "2024-01-01T00:00:00",
-                "updated_at": None
-            }
-        }
+    model_config = ConfigDict(from_attributes=True)
+
+# Update forward references
+Class.update_forward_refs()
+User.update_forward_refs()
+
+class SubmissionBase(BaseModel):
+    code: str
+    assignment_id: int
+
+class SubmissionCreate(SubmissionBase):
+    class_id: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+class SubmissionResponse(SubmissionBase):
+    id: int
+    user_id: int
+    class_id: int
+    grade: float
+    feedback: str
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    assignment: Assignment
+
+    model_config = ConfigDict(from_attributes=True)
 
 class Token(BaseModel):
     access_token: str
@@ -69,3 +89,20 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     email: Optional[str] = None
+
+class GradingCodeBase(BaseModel):
+    code: str
+
+class GradingCodeCreate(GradingCodeBase):
+    pass
+
+class GradingCodeResponse(GradingCodeBase):
+    id: int
+    professor_id: int
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+class SampleGradingCode(BaseModel):
+    code: str

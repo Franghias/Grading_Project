@@ -137,20 +137,27 @@ with st.form("login_form"):
                 
                 # Store token and user info in session state
                 st.session_state.token = result["access_token"]
-                st.session_state.user = result["user"]  # Store the complete user object
+                st.session_state.user = result["user"]  # Store the complete user object including user_id
                 
                 st.success("Login successful!")
-                # Redirect to main app
-                st.switch_page("pages/1_Home.py")
+                # Redirect based on user role
+                if result["user"]["is_professor"]:
+                    st.switch_page("pages/2_Professor_View.py")
+                else:
+                    st.switch_page("pages/3_Student_View.py")
             except requests.RequestException as e:
-                st.error(f"Login failed: {str(e)}")
+                st.error("Invalid email or password. Please try again.")
         else:
             st.error("Please fill in all fields")
 
-# Signup button
-st.markdown('<div class="mt-4">', unsafe_allow_html=True)
+# Add a signup link with helpful message
+st.markdown("""
+    <div style="text-align: center; margin-top: 1rem;">
+        <p>Don't have an account?</p>
+    </div>
+""", unsafe_allow_html=True)
+
 if st.button("Sign up here"):
     st.switch_page("pages/1_Signup.py")
-st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown('</div>', unsafe_allow_html=True) 
