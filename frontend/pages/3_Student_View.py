@@ -97,81 +97,95 @@ except requests.RequestException as e:
     st.error(f"Error fetching classes: {str(e)}")
     st.stop()
 
+# Initialize enrolled_classes in session state if not exists
+if 'enrolled_classes' not in st.session_state:
+    st.session_state.enrolled_classes = []
+
 # Separate enrolled and available classes
-enrolled_classes = [c for c in all_classes if c.get('is_enrolled')]
-available_classes = [c for c in all_classes if not c.get('is_enrolled')]
+enrolled_classes = []
+available_classes = []
 
-# Display enrolled classes if any
-if enrolled_classes:
+for class_data in all_classes:
+    # Check if the current user is in the students list
+    is_enrolled = any(student['user_id'] == st.session_state.user['user_id'] 
+                     for student in class_data.get('students', []))
+    
+    if is_enrolled:
+        enrolled_classes.append(class_data)
+        # Add to session state if not already there
+        if class_data['id'] not in st.session_state.enrolled_classes:
+            st.session_state.enrolled_classes.append(class_data['id'])
+    else:
+        available_classes.append(class_data)
+
+# Create two columns for the sections
+col1, col2 = st.columns(2)
+
+# Left column - Enrolled Classes
+with col1:
     st.markdown("### Your Enrolled Classes")
-    for class_data in enrolled_classes:
-        with st.expander(f"{class_data['name']} ({class_data['code']})"):
-            st.markdown(f"**Description:** {class_data['description'] or 'No description available'}")
-            st.markdown(f"**Prerequisites:** {class_data['prerequisites'] or 'None'}")
-            st.markdown(f"**Learning Objectives:** {class_data['learning_objectives'] or 'None'}")
-            st.markdown("**Professors:**")
-            for professor in class_data['professors']:
-                st.markdown(f"- {professor['name']} ({professor['email']})")
-            
-            # Button to view class details
-            if st.button(f"View {class_data['name']} Details", key=f"view_{class_data['id']}"):
-                # Store the complete class data in session state
-                st.session_state.selected_class = {
-                    "id": class_data['id'],
-                    "name": class_data['name'],
-                    "code": class_data['code'],
-                    "description": class_data['description'],
-                    "prerequisites": class_data['prerequisites'],
-                    "learning_objectives": class_data['learning_objectives'],
-                    "professors": class_data['professors'],
-                    "students": class_data['students'],
-                    "assignments": class_data['assignments']
-                }
-                st.switch_page("pages/1_Home.py")
-
-# Display available classes
-if available_classes:
-    st.markdown("### Available Classes")
-    for class_data in available_classes:
-        with st.expander(f"{class_data['name']} ({class_data['code']})"):
-            st.markdown(f"**Description:** {class_data['description'] or 'No description available'}")
-            st.markdown(f"**Prerequisites:** {class_data['prerequisites'] or 'None'}")
-            st.markdown(f"**Learning Objectives:** {class_data['learning_objectives'] or 'None'}")
-            st.markdown("**Professors:**")
-            for professor in class_data['professors']:
-                st.markdown(f"- {professor['name']} ({professor['email']})")
-            
-            # Enroll button
-            if st.button(f"Enroll in {class_data['name']}", key=f"enroll_{class_data['id']}"):
-                try:
-                    response = requests.post(
-                        f"{API_URL}/classes/{class_data['id']}/enroll",
-                        headers={"Authorization": f"Bearer {st.session_state.token}"}
-                    )
-                    response.raise_for_status()
-                    st.success(f"Successfully enrolled in {class_data['name']}!")
-                    
-                    # After successful enrollment, store the class data and redirect to Home
-                    st.session_state.selected_class = {
-                        "id": class_data['id'],
-                        "name": class_data['name'],
-                        "code": class_data['code'],
-                        "description": class_data['description'],
-                        "prerequisites": class_data['prerequisites'],
-                        "learning_objectives": class_data['learning_objectives'],
-                        "professors": class_data['professors'],
-                        "students": class_data['students'],
-                        "assignments": class_data['assignments']
-                    }
-                    time.sleep(2)
+    if enrolled_classes:
+        for class_data in enrolled_classes:
+            with st.expander(f"{class_data['name']} ({class_data['code']})", expanded=True):
+                st.markdown(f"**Description:** {class_data['description'] or 'No description available'}")
+                st.markdown(f"**Prerequisites:** {class_data['prerequisites'] or 'None'}")
+                st.markdown(f"**Learning Objectives:** {class_data['learning_objectives'] or 'None'}")
+                st.markdown("**Professors:**")
+                for professor in class_data['professors']:
+                    st.markdown(f"- {professor['name']} ({professor['email']})")
+                
+                # Button to view class details
+                if st.button(f"Go to {class_data['name']}", key=f"view_{class_data['id']}"):
+                    st.session_state.selected_class = class_data
                     st.switch_page("pages/1_Home.py")
-                except requests.RequestException as e:
-                    st.error(f"Error enrolling in class: {str(e)}")
-else:
-    st.info("No available classes to enroll in at the moment.")
+    else:
+        st.info("You haven't enrolled in any classes yet.")
 
-# Logout button
-if st.button("Logout"):
-    for key in list(st.session_state.keys()):
-        del st.session_state[key]
-    st.switch_page("login.py") 
+# Right column - Available Classes
+with col2:
+    st.markdown("### Available Classes")
+    if available_classes:
+        for class_data in available_classes:
+            with st.expander(f"{class_data['name']} ({class_data['code']})", expanded=True):
+                st.markdown(f"**Description:** {class_data['description'] or 'No description available'}")
+                st.markdown(f"**Prerequisites:** {class_data['prerequisites'] or 'None'}")
+                st.markdown(f"**Learning Objectives:** {class_data['learning_objectives'] or 'None'}")
+                st.markdown("**Professors:**")
+                for professor in class_data['professors']:
+                    st.markdown(f"- {professor['name']} ({professor['email']})")
+                
+                # Enroll button
+                if st.button(f"Enroll in {class_data['name']}", key=f"enroll_{class_data['id']}"):
+                    try:
+                        response = requests.post(
+                            f"{API_URL}/classes/{class_data['id']}/enroll",
+                            headers={"Authorization": f"Bearer {st.session_state.token}"}
+                        )
+                        response.raise_for_status()
+                        st.success(f"Successfully enrolled in {class_data['name']}!")
+                        
+                        # Add to enrolled classes in session state
+                        st.session_state.enrolled_classes.append(class_data['id'])
+                        
+                        # After successful enrollment, store the class data and redirect to Home
+                        st.session_state.selected_class = class_data
+                        time.sleep(2)
+                        st.switch_page("pages/1_Home.py")
+                    except requests.RequestException as e:
+                        st.error(f"Error enrolling in class: {str(e)}")
+    else:
+        st.info("No available classes to enroll in at the moment.")
+
+# Add a divider between sections
+st.markdown("---")
+
+# Navigation and logout buttons at the bottom
+col1, col2 = st.columns(2)
+with col1:
+    if st.button("Refresh Page"):
+        st.rerun()
+with col2:
+    if st.button("Logout"):
+        for key in list(st.session_state.keys()):
+            del st.session_state[key]
+        st.switch_page("login.py") 

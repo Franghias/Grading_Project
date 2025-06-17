@@ -493,7 +493,7 @@ async def get_class_assignments(
         for a in assignments
     ]
 
-@app.get("/classes/{class_id}/assignments/{assignment_id}/submissions", response_model=List[schemas.SubmissionResponse])
+@app.get("/classes/{class_id}/assignments/{assignment_id}/submissions", response_model=List[schemas.GroupedSubmissionResponse])
 async def get_assignment_submissions(
     class_id: int,
     assignment_id: int,
@@ -533,20 +533,65 @@ async def get_assignment_submissions(
             detail="Assignment not found"
         )
     
-    # Get all submissions for the assignment
-    submissions = db.query(models.Submission).filter(
+    # Get all submissions for the assignment with user information
+    submissions = db.query(
+        models.Submission,
+        models.User
+    ).join(
+        models.User,
+        models.Submission.user_id == models.User.user_id
+    ).filter(
         models.Submission.class_id == class_id,
         models.Submission.assignment_id == assignment_id
+    ).order_by(
+        models.User.name,
+        models.Submission.created_at.desc()
     ).all()
     
-    return submissions
+    # Group submissions by user
+    user_submissions = {}
+    for submission, user in submissions:
+        if user.user_id not in user_submissions:
+            user_submissions[user.user_id] = {
+                "user_id": user.user_id,
+                "username": user.name,
+                "submission_count": 0,
+                "submissions": []
+            }
+        
+        user_submissions[user.user_id]["submission_count"] += 1
+        user_submissions[user.user_id]["submissions"].append({
+            "id": submission.id,
+            "user_id": submission.user_id,
+            "class_id": submission.class_id,
+            "assignment_id": submission.assignment_id,
+            "code": submission.code,
+            "grade": submission.grade,
+            "feedback": submission.feedback,
+            "created_at": submission.created_at,
+            "updated_at": submission.updated_at,
+            "assignment": {
+                "id": db_assignment.id,
+                "name": db_assignment.name,
+                "description": db_assignment.description,
+                "class_id": db_assignment.class_id,
+                "created_at": db_assignment.created_at,
+                "updated_at": db_assignment.updated_at
+            }
+        })
+    
+    # Convert to list and sort by username
+    result = list(user_submissions.values())
+    result.sort(key=lambda x: x["username"])
+    
+    return result
 
 @app.post("/submissions/", response_model=schemas.SubmissionResponse)
 async def create_submission(
     file: Optional[UploadFile] = File(None),
     code: Optional[str] = Form(None),
     class_id: str = Form(...),
-    assignment_id: str = Form(...),  # Add assignment_id parameter
+    assignment_id: str = Form(...),
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(database.get_db)
 ):
@@ -587,19 +632,48 @@ async def create_submission(
             detail="No code provided"
         )
     
-    # Create submission
+    # Grade the code using the AI grading system
+    try:
+        grade, feedback = grading.grade_code(code)
+    except Exception as e:
+        logger.error(f"Error grading code: {str(e)}")
+        grade = 0.0
+        feedback = "Error during grading process. Please contact your professor."
+    
+    # Create submission with AI grading results
     db_submission = models.Submission(
         user_id=current_user.user_id,
         class_id=int(class_id),
         assignment_id=int(assignment_id),
-        code=code
+        code=code,
+        grade=grade,
+        feedback=feedback
     )
     
     db.add(db_submission)
     db.commit()
     db.refresh(db_submission)
     
-    return db_submission
+    # Format response according to SubmissionResponse schema
+    return {
+        "id": db_submission.id,
+        "user_id": db_submission.user_id,
+        "class_id": db_submission.class_id,
+        "assignment_id": db_submission.assignment_id,
+        "code": db_submission.code,
+        "grade": db_submission.grade,
+        "feedback": db_submission.feedback,
+        "created_at": db_submission.created_at,
+        "updated_at": db_submission.updated_at,
+        "assignment": {
+            "id": db_assignment.id,
+            "name": db_assignment.name,
+            "description": db_assignment.description,
+            "class_id": db_assignment.class_id,
+            "created_at": db_assignment.created_at,
+            "updated_at": db_assignment.updated_at
+        }
+    }
 
 @app.get("/submissions/{submission_id}", response_model=schemas.SubmissionResponse)
 async def get_submission(submission_id: int, db: Session = Depends(database.get_db)):

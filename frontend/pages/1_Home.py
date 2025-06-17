@@ -79,16 +79,15 @@ if 'token' not in st.session_state:
     st.warning("Please login first")
     st.switch_page("login.py")
 
-# Check if a class is selected
-if 'selected_class' not in st.session_state:
-    # If user is a student, redirect to Student View
-    if not st.session_state.user.get('is_professor'):
+# If user is a student and no class is selected, redirect to Student View
+if not st.session_state.user.get('is_professor'):
+    if 'selected_class' not in st.session_state:
         st.warning("Please select a class from the Student View")
         st.switch_page("pages/3_Student_View.py")
-    else:
-        # If user is a professor, redirect to Professor View
-        st.warning("Please go to Professor View to manage your classes")
-        st.switch_page("pages/2_Professor_View.py")
+elif 'selected_class' not in st.session_state:
+    # If user is a professor, redirect to Professor View
+    st.warning("Please go to Professor View to manage your classes")
+    st.switch_page("pages/2_Professor_View.py")
 
 # Get the selected class
 selected_class = st.session_state.selected_class
@@ -212,8 +211,8 @@ if selected_class['assignments']:
                             """, unsafe_allow_html=True)
                             
                             # Show submitted code
-                            with st.expander("Your Submitted Code", expanded=False):
-                                st.code(result['code'], language='python')
+                            # with st.expander("Your Submitted Code", expanded=False):
+                            st.code(result['code'], language='python')
                             
                         except requests.RequestException as e:
                             st.error(f"Submission failed: {str(e)}")

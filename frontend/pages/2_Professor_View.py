@@ -181,24 +181,34 @@ if selected_class:
                 # Display submissions
                 st.subheader(f"Submissions for {selected_assignment['name']}")
                 
-                # Group submissions by user
-                user_submissions = {}
-                for submission in submissions:
-                    user_id = submission['user_id']
-                    if user_id not in user_submissions:
-                        user_submissions[user_id] = []
-                    user_submissions[user_id].append(submission)
-
                 # Display submissions for each user
-                for user_id, user_subs in user_submissions.items():
-                    with st.expander(f"User ID: {user_id} - {len(user_subs)} submission(s)"):
-                        for submission in user_subs:
-                            st.markdown("---")
-                            st.markdown(f"**Submission ID:** {submission['id']}")
-                            st.markdown(f"**Submitted at:** {submission['created_at']}")
+                for user_data in submissions:
+                    with st.expander(f"📝 {user_data['username']} - {user_data['submission_count']} submission(s)", expanded=True):
+                        st.markdown("### Student Information")
+                        st.markdown(f"**👤 Student Name:** {user_data['username']}")
+                        st.markdown(f"**🆔 Student ID:** {user_data['user_id']}")
+                        st.markdown("---")
+                        
+                        for submission in user_data['submissions']:
+                            st.markdown("### Submission Details")
+                            st.markdown(f"**📋 Submission ID:** {submission['id']}")
+                            st.markdown(f"**⏰ Submitted at:** {submission['created_at']}")
+                            
+                            # Grade display with color coding
                             if submission['grade'] is not None:
-                                st.markdown(f"**Grade:** {submission['grade']}")
+                                grade_color = "green" if submission['grade'] >= 70 else "orange" if submission['grade'] >= 50 else "red"
+                                st.markdown(f"**📊 Grade:** <span style='color: {grade_color}; font-size: 1.2em; font-weight: bold;'>{submission['grade']}</span>", unsafe_allow_html=True)
+                            else:
+                                st.markdown("**📊 Grade:** Not graded yet")
+                            
+                            # Feedback section
                             if submission['feedback']:
-                                st.markdown(f"**Feedback:** {submission['feedback']}")
-                            st.markdown("**Code:**")
-                            st.code(submission['code'], language="python") 
+                                st.markdown("### Feedback")
+                                st.markdown(f"**💬 AI Comments:**")
+                                st.markdown(f"> {submission['feedback']}")
+                            
+                            # Code section
+                            st.markdown("### Submitted Code")
+                            st.code(submission['code'], language="python")
+                            
+                            st.markdown("---") 

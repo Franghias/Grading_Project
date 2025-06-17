@@ -80,7 +80,7 @@ class Submission(Base):
     __tablename__ = "submissions"
     id = Column(Integer, primary_key=True, index=True, 
                 doc="Unique identifier for the submission")
-    user_id = Column(Integer, ForeignKey("users.id"), index=True, 
+    user_id = Column(String, ForeignKey("users.user_id"), index=True, 
                     doc="User identifier")
     class_id = Column(Integer, ForeignKey("classes.id"), index=True,
                      doc="Class identifier")

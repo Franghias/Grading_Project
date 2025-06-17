@@ -43,6 +43,7 @@ class Class(ClassBase):
     professors: List["User"] = Field(default_factory=list)
     students: List["User"] = Field(default_factory=list)
     assignments: List[Assignment] = Field(default_factory=list)
+    is_enrolled: Optional[bool] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -72,13 +73,21 @@ class SubmissionCreate(SubmissionBase):
 
 class SubmissionResponse(SubmissionBase):
     id: int
-    user_id: int
+    user_id: str
     class_id: int
     grade: float
     feedback: str
     created_at: datetime
     updated_at: Optional[datetime] = None
     assignment: Assignment
+
+    model_config = ConfigDict(from_attributes=True)
+
+class GroupedSubmissionResponse(BaseModel):
+    user_id: str
+    username: str
+    submission_count: int
+    submissions: List[SubmissionResponse]
 
     model_config = ConfigDict(from_attributes=True)
 
