@@ -202,6 +202,8 @@ class GradingPromptBase(BaseModel):
     Base schema for a grading prompt (AI context customization).
     """
     prompt: str
+    class_id: Optional[int] = None
+    title: Optional[str] = None
 
 class GradingPromptCreate(GradingPromptBase):
     """
@@ -214,10 +216,8 @@ class GradingPromptResponse(GradingPromptBase):
     Schema for returning a grading prompt, including metadata.
     """
     id: int
-    professor_id: int
     created_at: datetime
     updated_at: Optional[datetime] = None
-
     model_config = ConfigDict(from_attributes=True)
 
 class SampleGradingPrompt(BaseModel):

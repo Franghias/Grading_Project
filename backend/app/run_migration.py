@@ -24,7 +24,7 @@ def run_prompt_migration():
         '''))
 
 if __name__ == "__main__":
-    print("Running database migration...")
+    # print("Running database migration...")
     upgrade()
     run_prompt_migration()
-    print("Migration completed successfully!") 
+    # print("Migration completed successfully!") 

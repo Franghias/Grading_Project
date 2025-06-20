@@ -106,10 +106,18 @@ def validate_response_structure(data: dict) -> tuple[bool, str]:
 
 def extract_json_from_text(text: str) -> dict:
     """
-    Try to extract JSON from text, even if it's embedded in other text.
+    Try to extract JSON from text, even if it's embedded in other text or markdown code blocks.
     Uses a regex pattern to match JSON structures and validates the result.
     Returns a default error structure if parsing fails.
     """
+    import json
+    import re
+    # Remove markdown code block wrappers
+    text = text.strip()
+    if text.startswith('```'):
+        # Remove triple backticks and optional language
+        text = re.sub(r'^```[a-zA-Z0-9]*\n?', '', text)
+        text = re.sub(r'```$', '', text)
     # First try direct JSON parsing
     try:
         data = json.loads(text)
@@ -119,21 +127,33 @@ def extract_json_from_text(text: str) -> dict:
         logger.warning(f"Invalid response structure: {error_msg}")
     except json.JSONDecodeError:
         pass
-    
-    # Try to find JSON-like structure in the text with a more precise pattern
-    # This pattern looks for a complete JSON object with balanced braces
-    json_pattern = r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}'
-    match = re.search(json_pattern, text)
-    if match:
+    # Try to find the largest JSON object in the text
+    # This pattern matches the largest {...} block (non-recursive, works with Python re)
+    json_pattern = r'\{(?:[^{}]|(?:\{[^{}]*\}))*\}'
+    matches = list(re.finditer(json_pattern, text, re.DOTALL))
+    if matches:
+        # Try the largest match first
+        largest = max(matches, key=lambda m: len(m.group()))
         try:
-            data = json.loads(match.group())
+            data = json.loads(largest.group())
             is_valid, error_msg = validate_response_structure(data)
             if is_valid:
                 return data
             logger.warning(f"Invalid response structure in extracted JSON: {error_msg}")
         except json.JSONDecodeError:
             logger.warning("Failed to parse extracted JSON structure")
-    
+    # Fallback to previous logic: try any {...} block
+    fallback_pattern = r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}'
+    match = re.search(fallback_pattern, text)
+    if match:
+        try:
+            data = json.loads(match.group())
+            is_valid, error_msg = validate_response_structure(data)
+            if is_valid:
+                return data
+            logger.warning(f"Invalid response structure in fallback extracted JSON: {error_msg}")
+        except json.JSONDecodeError:
+            logger.warning("Failed to parse fallback extracted JSON structure")
     # If no valid JSON found, create a structured response
     logger.error("Could not extract valid JSON from response")
     return {
@@ -145,6 +165,22 @@ def extract_json_from_text(text: str) -> dict:
             "best_practices": ["Response format error"]
         }
     }
+
+def safe_list(val, default=None):
+    if isinstance(val, list):
+        return val
+    if val is None:
+        return default if default is not None else []
+    if isinstance(val, str):
+        return [val] if val.strip() else []
+    return list(val) if hasattr(val, '__iter__') else [val]
+
+def format_feedback(feedback, error_msg=None):
+    if error_msg:
+        return f"""
+Code Quality Assessment: Could not parse AI response\nPotential Bugs:\n\n{error_msg}\nSuggested Improvements:\n\nPlease ensure your prompt instructs the AI to return a response in the following JSON format:\n\n{{\n    \"grade\": <number>,\n    \"feedback\": {{\n        \"code_quality\": \"<assessment>\",\n        \"bugs\": [\"<bug1>\", ...],\n        \"improvements\": [\"<suggestion1>\", ...],\n        \"best_practices\": [\"<practice1>\", ...]\n    }}\n}}\n\nBest Practices:\n\nResponse format error\n"""
+    return f"""
+Code Quality Assessment:\n{feedback.get('code_quality', 'No assessment provided')}\n\nPotential Bugs:\n{chr(10).join(f'- {bug}' for bug in feedback['bugs'])}\n\nSuggested Improvements:\n{chr(10).join(f'- {imp}' for imp in feedback['improvements'])}\n\nBest Practices:\n{chr(10).join(f'- {practice}' for practice in feedback['best_practices'])}\n"""
 
 def grade_code(code: str, description: str = None) -> tuple[float, str]:
     """
@@ -181,7 +217,7 @@ def grade_code(code: str, description: str = None) -> tuple[float, str]:
 
     try:
         logger.info("Sending request to AI API...")
-        print("AI_MODEL:", os.getenv("AI_MODEL"))
+        # print("AI_MODEL:", os.getenv("AI_MODEL"))
         request_payload = {
             "model": os.getenv("AI_MODEL"),
             "messages": [
@@ -234,19 +270,11 @@ def grade_code(code: str, description: str = None) -> tuple[float, str]:
         
         # Format the feedback in a structured way
         feedback = feedback_data.get("feedback", {})
-        formatted_feedback = f"""
-Code Quality Assessment:
-{feedback.get('code_quality', 'No assessment provided')}
-
-Potential Bugs:
-{chr(10).join(f'- {bug}' for bug in feedback.get('bugs', ['No bugs identified']))}
-
-Suggested Improvements:
-{chr(10).join(f'- {imp}' for imp in feedback.get('improvements', ['No improvements suggested']))}
-
-Best Practices:
-{chr(10).join(f'- {practice}' for practice in feedback.get('best_practices', ['No best practices noted']))}
-"""
+        # Robustly handle feedback fields
+        feedback["bugs"] = safe_list(feedback.get("bugs"), ["No bugs identified"])
+        feedback["improvements"] = safe_list(feedback.get("improvements"), ["No improvements suggested"])
+        feedback["best_practices"] = safe_list(feedback.get("best_practices"), ["No best practices noted"])
+        formatted_feedback = format_feedback(feedback)
         logger.info("Successfully processed AI response")
         
         # Cache the successful response
@@ -266,7 +294,8 @@ Best Practices:
         return 0.0, f"Error connecting to AI API: {str(e)}"
     except Exception as e:
         logger.error(f"Unexpected error: {str(e)}")
-        return 0.0, f"An unexpected error occurred: {str(e)}"
+        formatted_feedback = format_feedback({}, error_msg="Response parsing failed")
+        return 0.0, formatted_feedback.strip()
 
 def grade_code_with_prompt(code: str, prompt: str) -> tuple[float, str]:
     """
@@ -324,19 +353,11 @@ def grade_code_with_prompt(code: str, prompt: str) -> tuple[float, str]:
         feedback_data = extract_json_from_text(ai_response)
         grade = float(feedback_data.get("grade", 0))
         feedback = feedback_data.get("feedback", {})
-        formatted_feedback = f"""
-Code Quality Assessment:
-{feedback.get('code_quality', 'No assessment provided')}
-
-Potential Bugs:
-{chr(10).join(f'- {bug}' for bug in feedback.get('bugs', ['No bugs identified']))}
-
-Suggested Improvements:
-{chr(10).join(f'- {imp}' for imp in feedback.get('improvements', ['No improvements suggested']))}
-
-Best Practices:
-{chr(10).join(f'- {practice}' for practice in feedback.get('best_practices', ['No best practices noted']))}
-"""
+        # Robustly handle feedback fields
+        feedback["bugs"] = safe_list(feedback.get("bugs"), ["No bugs identified"])
+        feedback["improvements"] = safe_list(feedback.get("improvements"), ["No improvements suggested"])
+        feedback["best_practices"] = safe_list(feedback.get("best_practices"), ["No best practices noted"])
+        formatted_feedback = format_feedback(feedback)
         logger.info("Successfully processed AI response (custom prompt)")
         return grade, formatted_feedback.strip()
     except requests.exceptions.ConnectionError as e:
@@ -350,5 +371,6 @@ Best Practices:
         return 0.0, f"Error connecting to AI API: {str(e)}"
     except Exception as e:
         logger.error(f"Unexpected error: {str(e)}")
-        return 0.0, f"An unexpected error occurred: {str(e)}"
+        formatted_feedback = format_feedback({}, error_msg="Response parsing failed")
+        return 0.0, formatted_feedback.strip()
 

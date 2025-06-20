@@ -154,7 +154,6 @@ class User(Base):
 
     # Relationships
     submissions = relationship("Submission", back_populates="user")
-    grading_prompts = relationship("GradingPrompt", back_populates="professor")
     teaching_classes = relationship("Class", secondary=professor_classes, back_populates="professors")
     enrolled_classes = relationship("Class", secondary=student_classes, back_populates="students")
 
@@ -169,10 +168,8 @@ class GradingPrompt(Base):
     __tablename__ = "grading_prompts"
 
     id = Column(Integer, primary_key=True, index=True)
-    professor_id = Column(Integer, ForeignKey("users.id"))
     prompt = Column(Text)
+    title = Column(String, nullable=True)  # Add title for prompt
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    # Relationships
-    professor = relationship("User", back_populates="grading_prompts")
+    class_id = Column(Integer, ForeignKey("classes.id"), nullable=True)  # Null for global prompts, set for class-specific

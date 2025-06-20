@@ -154,6 +154,67 @@ selected_class = st.selectbox(
 )
 
 if selected_class:
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
+    st.subheader("Class Grading Prompt")
+    # Fetch current class prompt
+    try:
+        response = requests.get(f"{API_URL}/classes/{selected_class['id']}/prompt", headers={"Authorization": f"Bearer {st.session_state.token}"})
+        if response.status_code == 200:
+            class_prompt = response.json()
+            st.code(class_prompt['prompt'], language="text")
+            st.write(f"**Title:** {class_prompt['title']}")
+        else:
+            st.info("No prompt set for this class yet.")
+            class_prompt = None
+    except Exception as e:
+        st.error(f"Error fetching class prompt: {e}")
+
+    st.markdown("---")
+    st.subheader("Assign a Prompt to This Class")
+    # Browse all global prompts
+    try:
+        response = requests.get(f"{API_URL}/prompts/", headers={"Authorization": f"Bearer {st.session_state.token}"})
+        if response.status_code == 200:
+            all_prompts = response.json()
+            global_prompts = [p for p in all_prompts if p['class_id'] is None]
+            for prompt in global_prompts:
+                with st.expander(f"{prompt['title'] or 'Untitled Prompt'}"):
+                    st.code(prompt['prompt'], language="text")
+                    if st.button(f"Assign to this class", key=f"assign_{prompt['id']}"):
+                        assign_response = requests.post(
+                            f"{API_URL}/classes/{selected_class['id']}/prompt",
+                            params={"prompt_id": prompt['id']},
+                            headers={"Authorization": f"Bearer {st.session_state.token}"}
+                        )
+                        if assign_response.status_code == 200:
+                            st.success("Prompt assigned to class!")
+                        else:
+                            st.error(f"Failed to assign prompt: {assign_response.text}")
+        else:
+            st.warning("Could not load prompts.")
+    except Exception as e:
+        st.error(f"Error loading prompts: {e}")
+
+    st.markdown("---")
+    st.subheader("Edit Class Prompt")
+    if class_prompt:
+        with st.form(key="edit_class_prompt_form"):
+            new_title = st.text_input("Prompt Title", value=class_prompt['title'] or "")
+            new_prompt = st.text_area("Prompt Text", value=class_prompt['prompt'])
+            submit_edit = st.form_submit_button("Update Prompt")
+            if submit_edit:
+                edit_response = requests.put(
+                    f"{API_URL}/classes/{selected_class['id']}/prompt",
+                    json={"title": new_title, "prompt": new_prompt},
+                    headers={"Authorization": f"Bearer {st.session_state.token}"}
+                )
+                if edit_response.status_code == 200:
+                    st.success("Prompt updated!")
+                else:
+                    st.error(f"Failed to update prompt: {edit_response.text}")
+    else:
+        st.info("No prompt to edit for this class.")
+
     # Fetch assignments for the selected class
     try:
         response = requests.get(
@@ -192,7 +253,7 @@ if selected_class:
                     continue
             
             st.success("Default assignments created successfully!")
-            st.experimental_rerun()
+            st.rerun()
     else:
         # Assignment selection dropdown
         selected_assignment = st.selectbox(
@@ -243,15 +304,15 @@ if selected_class:
                                     st.markdown("**🤖 AI Grade:** Not available")
                             with col2:
                                 if submission['professor_grade'] is not None:
-                                    prof_grade_color = "green" if submission['professor_grade'] >= 70 else "orange" if submission['professor_grade'] >= 50 else "red"
+                                    final_grade_color = "green" if submission['professor_grade'] >= 70 else "orange" if submission['professor_grade'] >= 50 else "red"
                                     st.markdown(f"""
-                                        <div style="background-color: #f0fdf4; padding: 1rem; border-radius: 0.5rem; text-align: center; border: 1px solid #bbf7d0;">
-                                            <h4 style="margin: 0 0 0.5rem 0; color: #166534;">👨‍🏫 Professor Grade</h4>
-                                            <h2 style="margin: 0; color: {prof_grade_color}; font-size: 1.5rem;">{submission['professor_grade']}</h2>
+                                        <div style="background-color: #fef7ff; padding: 1rem; border-radius: 0.5rem; text-align: center; border: 2px solid #c084fc;">
+                                            <h4 style="margin: 0 0 0.5rem 0; color: #7c3aed;">📊 Final Grade</h4>
+                                            <h2 style="margin: 0; color: {final_grade_color}; font-size: 1.5rem;">{submission['professor_grade']}</h2>
                                         </div>
                                     """, unsafe_allow_html=True)
                                 else:
-                                    st.markdown("**👨‍🏫 Professor Grade:** Not graded")
+                                    st.markdown("**📊 Final Grade:** Not graded")
                             with col3:
                                 # Only show Final Grade if professor has graded
                                 if submission['professor_grade'] is not None:

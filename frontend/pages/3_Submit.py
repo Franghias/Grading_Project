@@ -213,7 +213,7 @@ if selected_class:
                         
                         st.success("Submission successful!")
                         time.sleep(2)
-                        st.experimental_rerun()
+                        st.rerun()
                     except requests.RequestException as e:
                         st.error(f"Error submitting code: {str(e)}")
             

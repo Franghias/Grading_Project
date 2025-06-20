@@ -10,6 +10,7 @@ from passlib.context import CryptContext
 from typing import List
 
 from . import models, schemas, main
+from .utils import get_password_hash, verify_password
 
 # =========================
 # User CRUD Operations

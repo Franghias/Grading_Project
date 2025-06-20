@@ -20,7 +20,7 @@ APP_DIR = Path(__file__).resolve().parent
 
 # Log the initialization
 logger.info("Initializing application...")
-logger.info(f"Application directory: {APP_DIR}")
+# logger.info("Application directory: {APP_DIR}")
 
 # Import key components to make them available when importing the package
 from . import models

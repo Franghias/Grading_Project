@@ -38,10 +38,10 @@ POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5432")
 # Construct database URL with explicit authentication parameters
 DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}?sslmode=disable"
 
-logger.info(f"Attempting to connect to database at {POSTGRES_HOST}:{POSTGRES_PORT}")
-logger.info(f"Using database: {POSTGRES_DB}")
-logger.info(f"Using user: {POSTGRES_USER}")
-logger.info(f"Using password: {POSTGRES_PASSWORD}")
+# logger.info(f"Attempting to connect to database at {POSTGRES_HOST}:{POSTGRES_PORT}")
+# logger.info(f"Using database: {POSTGRES_DB}")
+# logger.info(f"Using user: {POSTGRES_USER}")
+# logger.info(f"Using password: {POSTGRES_PASSWORD}")
 
 # =========================
 # SQLAlchemy Engine and Session

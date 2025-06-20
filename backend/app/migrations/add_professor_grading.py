@@ -57,7 +57,7 @@ def run_migration():
         """))
         
         connection.commit()
-        print("Migration completed successfully!")
+#         print("Migration completed successfully!")
 
 if __name__ == "__main__":
     run_migration() 

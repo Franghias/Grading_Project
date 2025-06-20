@@ -215,13 +215,13 @@ with st.form("signup_form"):
                         "password": password,
                         "is_professor": role == "Professor"  # Set is_professor based on role selection
                     }
-                    print(f"Sending signup request with data: {signup_data}")
+                    # print(f"Sending signup request with data: {signup_data}")
                     response = requests.post(
                         f"{API_URL}/auth/signup",
                         json=signup_data
                     )
-                    print(f"Response status code: {response.status_code}")
-                    print(f"Response content: {response.text}")
+                    # print(f"Response status code: {response.status_code}")
+                    # print(f"Response content: {response.text}")
                     response.raise_for_status()
                     result = response.json()
                     

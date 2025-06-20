@@ -82,13 +82,17 @@ def get_auth_header():
     """
     return {"Authorization": f"Bearer {st.session_state.token}"}
 
-def fetch_current_prompt():
+def fetch_current_prompt(class_id=None):
     """
-    Fetch the current grading prompt from the backend API.
+    Fetch the current grading prompt from the backend API for a specific class.
     Returns the prompt string or an empty string if not set.
     """
     try:
-        response = requests.get(f"{API_URL}/grading/custom-prompt", headers=get_auth_header())
+        if class_id is not None:
+            response = requests.get(f"{API_URL}/grading/custom-prompt?class_id={class_id}", headers=get_auth_header())
+        else:
+            # fallback to sample prompt if no class_id
+            return fetch_sample_prompt()
         response.raise_for_status()
         return response.json().get('prompt', '')
     except Exception as e:
@@ -129,9 +133,23 @@ def fetch_prompt_history():
 # Prompt Display and Management UI
 # =========================
 
+# Add a class selection dropdown at the top
+classes = []
+try:
+    response = requests.get(f"{API_URL}/classes/", headers=get_auth_header())
+    response.raise_for_status()
+    classes = response.json()
+except Exception as e:
+    st.error(f"Error fetching classes: {str(e)}")
+
+selected_class_id = None
+if classes:
+    selected_class = st.selectbox("Select a class to manage prompts for:", options=classes, format_func=lambda c: f"{c['name']} ({c['code']})")
+    selected_class_id = selected_class['id']
+
 # Show current prompt
 st.subheader("Current Grading Prompt")
-current_prompt = fetch_current_prompt()
+current_prompt = fetch_current_prompt(selected_class_id)
 st.code(current_prompt or "No prompt set.", language="text")
 
 # Show sample prompt in an expander

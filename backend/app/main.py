@@ -4,7 +4,7 @@
 # This file contains the main API endpoints for authentication, class and assignment management, submissions, and grading.
 # It also handles application initialization, CORS, and database setup.
 
-from fastapi import FastAPI, Depends, File, UploadFile, HTTPException, Form, Body, status, Request
+from fastapi import FastAPI, Depends, File, UploadFile, HTTPException, Form, Body, status, Request, Query
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from . import models, schemas, database, grading, crud
@@ -19,6 +19,8 @@ from pydantic import EmailStr
 from dotenv import load_dotenv
 import json
 import logging
+from .utils import get_password_hash, verify_password
+from sqlalchemy.orm import sessionmaker
 
 # =========================
 # Application Initialization
@@ -28,11 +30,11 @@ print("Starting application initialization...")
 
 # Load environment variables
 load_dotenv()
-print("Environment variables loaded")
+# print("Environment variables loaded")
 
 # JWT Configuration
 SECRET_KEY = os.getenv("SECRET_KEY")  # Change this in production
-ALGORITHM = "HS256"
+ALGORITHM = os.getenv("JWT_ALGORITHM")
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 # Password hashing
@@ -64,16 +66,16 @@ app.add_middleware(
     allow_methods=["*"],  # Allows all methods
     allow_headers=["*"],  # Allows all headers
 )
-print("CORS middleware added")
+# print("CORS middleware added")
 
 # Create database tables if they do not exist
-print("Attempting to create database tables...")
+# print("Attempting to create database tables...")
 try:
     # Uncomment the next line to drop all tables and start fresh
     # models.Base.metadata.drop_all(bind=database.engine)
     # Create tables with new schema
     models.Base.metadata.create_all(bind=database.engine)
-    print("Successfully created database tables")
+    # print("Successfully created database tables")
 except Exception as e:
     print(f"Error creating database tables: {str(e)}")
 
@@ -82,14 +84,6 @@ print("Application initialization complete!")
 # =========================
 # Authentication Functions
 # =========================
-
-def verify_password(plain_password, hashed_password):
-    """Verify a plain password against a hashed password."""
-    return pwd_context.verify(plain_password, hashed_password)
-
-def get_password_hash(password):
-    """Hash a password for secure storage."""
-    return pwd_context.hash(password)
 
 def create_access_token(data: dict):
     """Create a JWT access token with an expiration time."""
@@ -130,11 +124,11 @@ async def get_current_user(request: Request, token: str = Depends(oauth2_scheme)
 @app.post("/auth/signup", response_model=schemas.User, status_code=status.HTTP_201_CREATED)
 async def signup(user: schemas.UserCreate, db: Session = Depends(database.get_db)):
     """Register a new user. Checks for duplicate email and user_id."""
-    logger.debug(f"Creating user with email: {user.email}")
+    # logger.debug(f"Creating user with email: {user.email}")
     # Check if user already exists
     db_user = db.query(models.User).filter(models.User.email == user.email).first()
     if db_user:
-        logger.warning(f"User with email {user.email} already exists")
+        # logger.warning(f"User with email {user.email} already exists")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email already registered"
@@ -143,7 +137,7 @@ async def signup(user: schemas.UserCreate, db: Session = Depends(database.get_db
     # Check if user_id already exists
     db_user_id = db.query(models.User).filter(models.User.user_id == user.user_id).first()
     if db_user_id:
-        logger.warning(f"User with ID {user.user_id} already exists")
+        # logger.warning(f"User with ID {user.user_id} already exists")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="User ID already registered"
@@ -166,7 +160,7 @@ async def signup(user: schemas.UserCreate, db: Session = Depends(database.get_db
         db.commit()
         db.refresh(db_user)
         
-        logger.info(f"Successfully created user with email: {user.email}")
+        # logger.info(f"Successfully created user with email: {user.email}")
         # Convert to response model
         return {
             "id": db_user.id,
@@ -179,7 +173,7 @@ async def signup(user: schemas.UserCreate, db: Session = Depends(database.get_db
             "updated_at": db_user.updated_at
         }
     except Exception as e:
-        logger.error(f"Error creating user: {str(e)}")
+        # logger.error(f"Error creating user: {str(e)}")
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -659,28 +653,32 @@ async def create_submission(
             detail="No code provided"
         )
     
-    # Grade the code using the AI grading system with the latest professor prompt
+    # Grade the code using the AI grading system with the latest class prompt or global prompt
     try:
-        # Get the main professor for the class (first in list)
-        main_professor = db_class.professors[0] if db_class.professors else None
-        prompt = None
-        if main_professor:
-            grading_prompt = db.query(models.GradingPrompt)\
-                .filter(models.GradingPrompt.professor_id == main_professor.id)\
+        # Try to get the latest class-specific prompt
+        grading_prompt = db.query(models.GradingPrompt)\
+            .filter(models.GradingPrompt.class_id == int(class_id))\
+            .order_by(models.GradingPrompt.created_at.desc())\
+            .first()
+        if grading_prompt:
+            prompt = grading_prompt.prompt
+        else:
+            # Fallback to global prompt
+            global_prompt = db.query(models.GradingPrompt)\
+                .filter(models.GradingPrompt.class_id == None)\
                 .order_by(models.GradingPrompt.created_at.desc())\
                 .first()
-            if grading_prompt:
-                prompt = grading_prompt.prompt
-        if not prompt:
-            # Fallback to sample prompt
-            sample_prompt = await get_sample_grading_prompt()
-            prompt = sample_prompt["prompt"]
-        # Inject assignment description into the prompt
+            if global_prompt:
+                prompt = global_prompt.prompt
+            else:
+                sample_prompt = await get_sample_grading_prompt()
+                prompt = sample_prompt["prompt"]
+        # Always replace placeholders before calling the AI
         prompt = prompt.replace("{description}", db_assignment.description or "No description provided")
         prompt = prompt.replace("{code}", code)
         ai_grade, ai_feedback = grading.grade_code_with_prompt(code, prompt)
     except Exception as e:
-        logger.error(f"Error grading code: {str(e)}")
+        # logger.error(f"Error grading code: {str(e)}")
         ai_grade = 0.0
         ai_feedback = "Error during grading process. Please contact your professor."
     
@@ -692,7 +690,7 @@ async def create_submission(
         code=code,
         ai_grade=ai_grade,
         ai_feedback=ai_feedback,
-        final_grade=ai_grade  # Initially, final grade is the AI grade
+        final_grade=None  # Initially, final grade is None
     )
     
     db.add(db_submission)
@@ -723,6 +721,53 @@ async def create_submission(
         }
     }
 
+@app.get("/submissions/", response_model=List[schemas.SubmissionResponse])
+async def get_user_submissions(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(database.get_db)
+):
+    # If user is professor, return all submissions
+    if current_user.is_professor:
+        submissions = db.query(models.Submission).all()
+    else:
+        # If user is student, return only their submissions
+        submissions = db.query(models.Submission).filter(
+            models.Submission.user_id == current_user.user_id
+        ).all()
+    # Return submissions in the correct format with assignment information
+    result = []
+    for submission in submissions:
+        # Get assignment information
+        assignment = db.query(models.Assignment).filter(
+            models.Assignment.id == submission.assignment_id
+        ).first()
+        assignment_data = None
+        if assignment:
+            assignment_data = {
+                "id": assignment.id,
+                "name": assignment.name,
+                "description": assignment.description,
+                "class_id": assignment.class_id,
+                "created_at": assignment.created_at,
+                "updated_at": assignment.updated_at
+            }
+        result.append({
+            "id": submission.id,
+            "user_id": submission.user_id,
+            "class_id": submission.class_id,
+            "assignment_id": submission.assignment_id,
+            "code": submission.code,
+            "ai_grade": submission.ai_grade,
+            "professor_grade": submission.professor_grade,
+            "final_grade": submission.final_grade,
+            "ai_feedback": submission.ai_feedback,
+            "professor_feedback": submission.professor_feedback,
+            "created_at": submission.created_at,
+            "updated_at": submission.updated_at,
+            "assignment": assignment_data
+        })
+    return result
+
 @app.get("/submissions/{submission_id}", response_model=schemas.SubmissionResponse)
 async def get_submission(submission_id: int, db: Session = Depends(database.get_db)):
     submission = db.query(models.Submission).filter(models.Submission.id == submission_id).first()
@@ -746,22 +791,17 @@ async def get_submission(submission_id: int, db: Session = Depends(database.get_
 @app.get("/grading/sample-prompt")
 async def get_sample_grading_prompt():
     """Return the sample grading prompt that professors can use as a reference"""
-    sample_prompt = """As a Computer Science Professor Assistant, please analyze this Python code for the following assignment:\n\nAssignment Description:\n{description}\n\nPlease provide:\n1. A grade (0-100)\n2. Detailed feedback including:\n   - Code quality assessment\n   - Potential bugs or issues\n   - Suggestions for improvement\n   - Best practices followed or missing\n\nCode to analyze:\n```python\n{code}\n```\n\nIMPORTANT: Your response MUST be in valid JSON format with this exact structure:\n{{\n    \"grade\": <number>,\n    \"feedback\": {{\n        \"code_quality\": \"<assessment>\",\n        \"bugs\": [\"<bug1>\", \"<bug2>\", ...],\n        \"improvements\": [\"<suggestion1>\", ...],\n        \"best_practices\": [\"<practice1>\", ...]\n    }}\n}}\n\nDo not include any text before or after the JSON structure."""
+    sample_prompt = """As a Computer Science Professor Assistant, please analyze this Python code for the following assignment:\n\nAssignment Description:\n{description}\n\nPlease provide:\n1. A grade (0-100)\n2. Detailed feedback including:\n   - Code quality assessment\n   - Potential bugs or issues\n   - Suggestions for improvement\n   - Best practices followed or missing\n\nCode to analyze:\n```python\n{code}\n```\n\nIMPORTANT: Your response MUST be in valid JSON format with this exact structure:\n{{\n    \"grade\": <number>,\n    \"feedback\": {{\n        \"code_quality\": \"<assessment>\",\n        \"bugs\": \"<issues>\",\n        \"suggestions\": \"<suggestions>\",\n        \"best_practices\": \"<best_practices>\"\n    }}\n}}\n"""
     return {"prompt": sample_prompt}
 
 @app.get("/grading/custom-prompt")
 async def get_custom_grading_prompt(
-    current_user: models.User = Depends(get_current_user),
+    class_id: int = Query(...),
     db: Session = Depends(database.get_db)
 ):
-    """Get the current professor's custom grading prompt, or the default if not set"""
-    if not current_user.is_professor:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only professors can have custom grading prompts"
-        )
+    """Get the current class's custom grading prompt, or the default if not set"""
     grading_prompt = db.query(models.GradingPrompt)\
-        .filter(models.GradingPrompt.professor_id == current_user.id)\
+        .filter(models.GradingPrompt.class_id == class_id)\
         .order_by(models.GradingPrompt.created_at.desc())\
         .first()
     if grading_prompt:
@@ -769,45 +809,86 @@ async def get_custom_grading_prompt(
     # Return default sample if not set
     return await get_sample_grading_prompt()
 
-@app.post("/grading/custom-prompt")
-async def set_custom_grading_prompt(
-    prompt: str = Body(..., embed=True),
-    current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(database.get_db)
-):
-    """Store custom grading prompt for a professor"""
-    if not current_user.is_professor:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only professors can set custom grading prompt"
-        )
-    db_grading_prompt = models.GradingPrompt(
-        professor_id=current_user.id,
-        prompt=prompt,
-        created_at=datetime.utcnow()
+@app.post("/prompts/", response_model=schemas.GradingPromptResponse)
+def create_prompt(prompt: schemas.GradingPromptBase, db: Session = Depends(database.get_db)):
+    db_prompt = models.GradingPrompt(
+        title=prompt.title,
+        prompt=prompt.prompt,
+        class_id=prompt.class_id
     )
-    db.add(db_grading_prompt)
+    db.add(db_prompt)
     db.commit()
-    db.refresh(db_grading_prompt)
-    return {"message": "Custom grading prompt stored successfully"}
+    db.refresh(db_prompt)
+    return db_prompt
+
+@app.get("/classes/{class_id}/prompt", response_model=schemas.GradingPromptResponse)
+def get_class_prompt(class_id: int, db: Session = Depends(database.get_db)):
+    prompt = db.query(models.GradingPrompt).filter(models.GradingPrompt.class_id == class_id).order_by(models.GradingPrompt.created_at.desc()).first()
+    if not prompt:
+        raise HTTPException(status_code=404, detail="No prompt set for this class.")
+    return prompt
+
+@app.post("/classes/{class_id}/prompt", response_model=schemas.GradingPromptResponse)
+def assign_prompt_to_class(class_id: int, prompt_id: int, db: Session = Depends(database.get_db)):
+    prompt = db.query(models.GradingPrompt).filter(models.GradingPrompt.id == prompt_id).first()
+    if not prompt:
+        raise HTTPException(status_code=404, detail="Prompt not found.")
+    # Create a new prompt for the class based on the selected prompt
+    new_prompt = models.GradingPrompt(
+        title=prompt.title,
+        prompt=prompt.prompt,
+        class_id=class_id
+    )
+    db.add(new_prompt)
+    db.commit()
+    db.refresh(new_prompt)
+    return new_prompt
+
+@app.put("/classes/{class_id}/prompt", response_model=schemas.GradingPromptResponse)
+def edit_class_prompt(class_id: int, prompt: schemas.GradingPromptBase, db: Session = Depends(database.get_db)):
+    db_prompt = db.query(models.GradingPrompt).filter(models.GradingPrompt.class_id == class_id).order_by(models.GradingPrompt.created_at.desc()).first()
+    if not db_prompt:
+        raise HTTPException(status_code=404, detail="No prompt set for this class.")
+    db_prompt.title = prompt.title
+    db_prompt.prompt = prompt.prompt
+    db.commit()
+    db.refresh(db_prompt)
+    return db_prompt
+
+# Ensure sample prompt is in the database as a global prompt
+def ensure_sample_prompt():
+    from sqlalchemy.orm import Session
+    from .database import engine
+    from . import models
+    SAMPLE_PROMPT_TITLE = "Introduction to Python Class Prompt"
+    SAMPLE_PROMPT = """As a Computer Science Professor Assistant, please analyze this Python code for the following assignment:\n\nAssignment Description:\n{description}\n\nPlease provide:\n1. A grade (0-100)\n2. Detailed feedback including:\n   - Code quality assessment\n   - Potential bugs or issues\n   - Suggestions for improvement\n   - Best practices followed or missing\n\nCode to analyze:\n```python\n{code}\n```\n\nIMPORTANT: Your response MUST be in valid JSON format with this exact structure:\n{{\n    \"grade\": <number>,\n    \"feedback\": {{\n        \"code_quality\": \"<assessment>\",\n        \"bugs\": \"<issues>\",\n        \"suggestions\": \"<suggestions>\",\n        \"best_practices\": \"<best_practices>\"\n    }}\n}}\n"""
+    with Session(engine) as db:
+        exists = db.query(models.GradingPrompt).filter(
+            models.GradingPrompt.prompt == SAMPLE_PROMPT,
+            models.GradingPrompt.class_id == None
+        ).first()
+        if not exists:
+            db_prompt = models.GradingPrompt(
+                title=SAMPLE_PROMPT_TITLE,
+                prompt=SAMPLE_PROMPT,
+                class_id=None
+            )
+            db.add(db_prompt)
+            db.commit()
+
+ensure_sample_prompt()
 
 @app.post("/submissions/grade-with-custom-prompt")
 async def grade_with_custom_prompt(
     submission_id: int,
-    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(database.get_db)
 ):
-    """Grade a submission using the professor's custom grading prompt"""
-    if not current_user.is_professor:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only professors can use custom grading prompt"
-        )
+    """Grade a submission using the class's custom grading prompt"""
     submission = db.query(models.Submission).filter(models.Submission.id == submission_id).first()
     if not submission:
         raise HTTPException(status_code=404, detail="Submission not found")
     grading_prompt = db.query(models.GradingPrompt)\
-        .filter(models.GradingPrompt.professor_id == current_user.id)\
+        .filter(models.GradingPrompt.class_id == submission.class_id)\
         .order_by(models.GradingPrompt.created_at.desc())\
         .first()
     if grading_prompt:
@@ -827,119 +908,56 @@ async def grade_with_custom_prompt(
         "feedback": feedback
     }
 
-@app.get("/submissions/", response_model=List[schemas.SubmissionResponse])
-async def get_user_submissions(
-    current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(database.get_db)
-):
-    # If user is professor, return all submissions
-    if current_user.is_professor:
-        submissions = db.query(models.Submission).all()
-    else:
-        # If user is student, return only their submissions
-        submissions = db.query(models.Submission).filter(
-            models.Submission.user_id == current_user.user_id
-        ).all()
-    
-    # Return submissions in the correct format with assignment information
-    result = []
-    for submission in submissions:
-        # Get assignment information
-        assignment = db.query(models.Assignment).filter(
-            models.Assignment.id == submission.assignment_id
-        ).first()
-        
-        assignment_data = None
-        if assignment:
-            assignment_data = {
-                "id": assignment.id,
-                "name": assignment.name,
-                "description": assignment.description,
-                "class_id": assignment.class_id,
-                "created_at": assignment.created_at,
-                "updated_at": assignment.updated_at
-            }
-        
-        result.append({
-            "id": submission.id,
-            "user_id": submission.user_id,
-            "class_id": submission.class_id,
-            "assignment_id": submission.assignment_id,
-            "code": submission.code,
-            "ai_grade": submission.ai_grade,
-            "professor_grade": submission.professor_grade,
-            "final_grade": submission.final_grade,
-            "ai_feedback": submission.ai_feedback,
-            "professor_feedback": submission.professor_feedback,
-            "created_at": submission.created_at,
-            "updated_at": submission.updated_at,
-            "assignment": assignment_data
-        })
-    
-    return result
+@app.get("/prompts/", response_model=List[schemas.GradingPromptResponse])
+def get_all_prompts(db: Session = Depends(database.get_db), class_id: Optional[int] = Query(None)):
+    query = db.query(models.GradingPrompt)
+    if class_id is not None:
+        query = query.filter(models.GradingPrompt.class_id == class_id)
+    return query.order_by(models.GradingPrompt.created_at.desc()).all()
 
-@app.post("/submissions/{submission_id}/professor-grade", response_model=schemas.ProfessorGradeResponse)
-async def set_professor_grade(
-    submission_id: int,
-    grade_request: schemas.ProfessorGradeRequest,
-    current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(database.get_db)
-):
-    """Set a professor grade for a submission"""
-    if not current_user.is_professor:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only professors can set grades"
-        )
-    
-    # Get the submission
-    submission = db.query(models.Submission).filter(models.Submission.id == submission_id).first()
-    if not submission:
-        raise HTTPException(status_code=404, detail="Submission not found")
-    
-    # Check if the professor is teaching the class
-    db_class = db.query(models.Class).filter(models.Class.id == submission.class_id).first()
-    if not db_class or current_user not in db_class.professors:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only grade submissions from classes you teach"
-        )
-    
-    # Update the submission with professor grade
-    submission.professor_grade = grade_request.grade
-    submission.professor_feedback = grade_request.feedback
-    submission.final_grade = grade_request.grade  # Professor grade overrides AI grade
-    submission.updated_at = datetime.utcnow()
-    
+@app.post("/prompts/", response_model=schemas.GradingPromptResponse)
+def create_prompt(prompt: schemas.GradingPromptBase, db: Session = Depends(database.get_db)):
+    db_prompt = models.GradingPrompt(
+        title=prompt.title,
+        prompt=prompt.prompt,
+        class_id=prompt.class_id
+    )
+    db.add(db_prompt)
     db.commit()
-    db.refresh(submission)
-    
-    return {
-        "submission_id": submission.id,
-        "professor_grade": submission.professor_grade,
-        "professor_feedback": submission.professor_feedback,
-        "final_grade": submission.final_grade,
-        "message": "Professor grade set successfully"
-    }
+    db.refresh(db_prompt)
+    return db_prompt
 
-@app.put("/assignments/{assignment_id}", response_model=schemas.Assignment)
-async def update_assignment(
-    assignment_id: int,
-    assignment: schemas.AssignmentUpdate,
-    current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(database.get_db)
-):
-    """Update an assignment (professor only)"""
-    db_assignment = db.query(models.Assignment).filter(models.Assignment.id == assignment_id).first()
-    if not db_assignment:
-        raise HTTPException(status_code=404, detail="Assignment not found")
+@app.get("/classes/{class_id}/prompt", response_model=schemas.GradingPromptResponse)
+def get_class_prompt(class_id: int, db: Session = Depends(database.get_db)):
+    prompt = db.query(models.GradingPrompt).filter(models.GradingPrompt.class_id == class_id).order_by(models.GradingPrompt.created_at.desc()).first()
+    if not prompt:
+        raise HTTPException(status_code=404, detail="No prompt set for this class.")
+    return prompt
 
-    # Check if the current user is a professor of the class this assignment belongs to
-    if not current_user.is_professor or db_assignment.class_ not in current_user.teaching_classes:
-         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only professors of this class can edit assignments"
-        )
-    
-    return crud.update_assignment(db=db, assignment_id=assignment_id, assignment=assignment)
+@app.post("/classes/{class_id}/prompt", response_model=schemas.GradingPromptResponse)
+def assign_prompt_to_class(class_id: int, prompt_id: int, db: Session = Depends(database.get_db)):
+    prompt = db.query(models.GradingPrompt).filter(models.GradingPrompt.id == prompt_id).first()
+    if not prompt:
+        raise HTTPException(status_code=404, detail="Prompt not found.")
+    # Create a new prompt for the class based on the selected prompt
+    new_prompt = models.GradingPrompt(
+        title=prompt.title,
+        prompt=prompt.prompt,
+        class_id=class_id
+    )
+    db.add(new_prompt)
+    db.commit()
+    db.refresh(new_prompt)
+    return new_prompt
+
+@app.put("/classes/{class_id}/prompt", response_model=schemas.GradingPromptResponse)
+def edit_class_prompt(class_id: int, prompt: schemas.GradingPromptBase, db: Session = Depends(database.get_db)):
+    db_prompt = db.query(models.GradingPrompt).filter(models.GradingPrompt.class_id == class_id).order_by(models.GradingPrompt.created_at.desc()).first()
+    if not db_prompt:
+        raise HTTPException(status_code=404, detail="No prompt set for this class.")
+    db_prompt.title = prompt.title
+    db_prompt.prompt = prompt.prompt
+    db.commit()
+    db.refresh(db_prompt)
+    return db_prompt
 

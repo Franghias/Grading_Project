@@ -240,71 +240,41 @@ if selected_class['assignments']:
                                     </div>
                                 """, unsafe_allow_html=True)
                         with col2:
-                            # Professor Grade Section
+                            # Final Grade Section
                             if submission['professor_grade'] is not None:
                                 st.markdown("""
                                     <div style="
-                                        background-color: #f0fdf4;
-                                        padding: 1.5rem;
+                                        background-color: #fef7ff;
+                                        padding: 2rem;
                                         border-radius: 0.5rem;
                                         text-align: center;
-                                        border: 1px solid #bbf7d0;
-                                        margin-bottom: 1rem;
+                                        border: 2px solid #c084fc;
+                                        margin-bottom: 2rem;
                                     ">
-                                        <h3 style="margin: 0 0 1rem 0; color: #166534;">👨‍🏫 Professor Grade</h3>
-                                        <h1 style="margin: 0; color: #166534; font-size: 2.5rem;">{professor_grade}</h1>
-                                        <p style="margin: 0; color: #166534; font-size: 1rem;">out of 100</p>
+                                        <h2 style="margin: 0 0 1rem 0; color: #7c3aed;">📊 Final Grade</h2>
+                                        <h1 style="margin: 0; color: #7c3aed; font-size: 3rem;">{professor_grade}</h1>
+                                        <p style="margin: 0; color: #7c3aed; font-size: 1.2rem;">out of 100</p>
+                                        <p style="margin: 0; color: #7c3aed; font-size: 0.9rem; margin-top: 0.5rem;">
+                                            Professor's grade
+                                        </p>
                                     </div>
-                                """.format(professor_grade=submission['professor_grade']), unsafe_allow_html=True)
+                                """.format(
+                                    professor_grade=submission['professor_grade']
+                                ), unsafe_allow_html=True)
                             else:
                                 st.markdown("""
                                     <div style="
-                                        background-color: #fef3c7;
-                                        padding: 1.5rem;
+                                        background-color: #fef7ff;
+                                        padding: 2rem;
                                         border-radius: 0.5rem;
                                         text-align: center;
-                                        border: 1px solid #fde68a;
-                                        margin-bottom: 1rem;
+                                        border: 2px solid #c084fc;
+                                        margin-bottom: 2rem;
                                     ">
-                                        <h3 style="margin: 0 0 1rem 0; color: #92400e;">👨‍🏫 Professor Grade</h3>
-                                        <p style="margin: 0; color: #92400e; font-size: 1rem;">Not graded yet</p>
+                                        <h2 style="margin: 0 0 1rem 0; color: #7c3aed;">📊 Final Grade</h2>
+                                        <h1 style="margin: 0; color: #7c3aed; font-size: 2rem;">Wait for Professor Feedback</h1>
                                     </div>
                                 """, unsafe_allow_html=True)
-                        # Final Grade Section
-                        if submission['professor_grade'] is not None:
-                            st.markdown("""
-                                <div style="
-                                    background-color: #fef7ff;
-                                    padding: 2rem;
-                                    border-radius: 0.5rem;
-                                    text-align: center;
-                                    border: 2px solid #c084fc;
-                                    margin-bottom: 2rem;
-                                ">
-                                    <h2 style="margin: 0 0 1rem 0; color: #7c3aed;">📊 Final Grade</h2>
-                                    <h1 style="margin: 0; color: #7c3aed; font-size: 3rem;">{professor_grade}</h1>
-                                    <p style="margin: 0; color: #7c3aed; font-size: 1.2rem;">out of 100</p>
-                                    <p style="margin: 0; color: #7c3aed; font-size: 0.9rem; margin-top: 0.5rem;">
-                                        Professor's grade
-                                    </p>
-                                </div>
-                            """.format(
-                                professor_grade=submission['professor_grade']
-                            ), unsafe_allow_html=True)
-                        else:
-                            st.markdown("""
-                                <div style="
-                                    background-color: #fef7ff;
-                                    padding: 2rem;
-                                    border-radius: 0.5rem;
-                                    text-align: center;
-                                    border: 2px solid #c084fc;
-                                    margin-bottom: 2rem;
-                                ">
-                                    <h2 style="margin: 0 0 1rem 0; color: #7c3aed;">📊 Final Grade</h2>
-                                    <h1 style="margin: 0; color: #7c3aed; font-size: 2rem;">wait for professor feedback</h1>
-                                </div>
-                            """, unsafe_allow_html=True)
                         
                         # Feedback sections
                         col1, col2 = st.columns(2)
@@ -407,12 +377,10 @@ if selected_class['assignments']:
                             headers = {"Authorization": f"Bearer {st.session_state.token}"}
                             files = None
                             data = None
-                            
                             if file:
                                 files = {"file": file}
                             else:
                                 data = {"code": code}
-                            
                             # Add class_id and assignment_id to the request
                             if data:
                                 data["class_id"] = str(selected_class['id'])
@@ -422,7 +390,6 @@ if selected_class['assignments']:
                                     "class_id": str(selected_class['id']),
                                     "assignment_id": str(assignment['id'])
                                 }
-                            
                             response = requests.post(
                                 f"{API_URL}/submissions/",
                                 headers=headers,
@@ -431,32 +398,41 @@ if selected_class['assignments']:
                             )
                             response.raise_for_status()
                             result = response.json()
-                            
                             st.success("Submission successful!")
-                            
-                            # Display grades in two sections
-                            col1, col2 = st.columns(2)
-                            
-                            with col1:
-                                # AI Grade Section
+                            # Only show grades and feedback if professor has graded
+                            if result['professor_grade'] is None:
                                 st.markdown("""
                                     <div style="
-                                        background-color: #f0f9ff;
-                                        padding: 1.5rem;
+                                        background-color: #fef3c7;
+                                        padding: 2rem;
                                         border-radius: 0.5rem;
                                         text-align: center;
-                                        border: 1px solid #bae6fd;
-                                        margin-bottom: 1rem;
+                                        border: 2px solid #fde68a;
+                                        margin-bottom: 2rem;
                                     ">
-                                        <h3 style="margin: 0 0 1rem 0; color: #0369a1;">🤖 AI Grade</h3>
-                                        <h1 style="margin: 0; color: #0369a1; font-size: 2.5rem;">{ai_grade}</h1>
-                                        <p style="margin: 0; color: #0369a1; font-size: 1rem;">out of 100</p>
+                                        <h2 style="margin: 0 0 1rem 0; color: #92400e;">Waiting for professor feedback</h2>
+                                        <p style="margin: 0; color: #92400e; font-size: 1.2rem;">Your submission has been received and is pending review by your professor.</p>
                                     </div>
-                                """.format(ai_grade=result['ai_grade']), unsafe_allow_html=True)
-                            
-                            with col2:
-                                # Professor Grade Section
-                                if result['professor_grade'] is not None:
+                                """, unsafe_allow_html=True)
+                            else:
+                                # Show grades and feedback as before
+                                col1, col2 = st.columns(2)
+                                with col1:
+                                    st.markdown("""
+                                        <div style="
+                                            background-color: #f0f9ff;
+                                            padding: 1.5rem;
+                                            border-radius: 0.5rem;
+                                            text-align: center;
+                                            border: 1px solid #bae6fd;
+                                            margin-bottom: 1rem;
+                                        ">
+                                            <h3 style="margin: 0 0 1rem 0; color: #0369a1;">🤖 AI Grade</h3>
+                                            <h1 style="margin: 0; color: #0369a1; font-size: 2.5rem;">{ai_grade}</h1>
+                                            <p style="margin: 0; color: #0369a1; font-size: 1rem;">out of 100</p>
+                                        </div>
+                                    """.format(ai_grade=result['ai_grade']), unsafe_allow_html=True)
+                                with col2:
                                     st.markdown("""
                                         <div style="
                                             background-color: #f0fdf4;
@@ -471,64 +447,38 @@ if selected_class['assignments']:
                                             <p style="margin: 0; color: #166534; font-size: 1rem;">out of 100</p>
                                         </div>
                                     """.format(professor_grade=result['professor_grade']), unsafe_allow_html=True)
-                                else:
-                                    st.markdown("""
+                                st.markdown("""
+                                    <div style="
+                                        background-color: #fef7ff;
+                                        padding: 2rem;
+                                        border-radius: 0.5rem;
+                                        text-align: center;
+                                        border: 2px solid #c084fc;
+                                        margin-bottom: 2rem;
+                                    ">
+                                        <h2 style="margin: 0 0 1rem 0; color: #7c3aed;">📊 Final Grade</h2>
+                                        <h1 style="margin: 0; color: #7c3aed; font-size: 3rem;">{final_grade}</h1>
+                                        <p style="margin: 0; color: #7c3aed; font-size: 1.2rem;">out of 100</p>
+                                        <p style="margin: 0; color: #7c3aed; font-size: 0.9rem; margin-top: 0.5rem;">
+                                            Professor's grade (overrides AI)
+                                        </p>
+                                    </div>
+                                """.format(final_grade=result['final_grade']), unsafe_allow_html=True)
+                                col1, col2 = st.columns(2)
+                                with col1:
+                                    st.markdown("### 🤖 AI Feedback")
+                                    st.markdown(f"""
                                         <div style="
-                                            background-color: #fef3c7;
+                                            background-color: #f8fafc;
                                             padding: 1.5rem;
                                             border-radius: 0.5rem;
-                                            text-align: center;
-                                            border: 1px solid #fde68a;
+                                            border: 1px solid #e2e8f0;
                                             margin-bottom: 1rem;
                                         ">
-                                            <h3 style="margin: 0 0 1rem 0; color: #92400e;">👨‍🏫 Professor Grade</h3>
-                                            <p style="margin: 0; color: #92400e; font-size: 1rem;">Not graded yet</p>
+                                            {result['ai_feedback']}
                                         </div>
                                     """, unsafe_allow_html=True)
-                            
-                            # Final Grade Section
-                            st.markdown("""
-                                <div style="
-                                    background-color: #fef7ff;
-                                    padding: 2rem;
-                                    border-radius: 0.5rem;
-                                    text-align: center;
-                                    border: 2px solid #c084fc;
-                                    margin-bottom: 2rem;
-                                ">
-                                    <h2 style="margin: 0 0 1rem 0; color: #7c3aed;">📊 Final Grade</h2>
-                                    <h1 style="margin: 0; color: #7c3aed; font-size: 3rem;">{final_grade}</h1>
-                                    <p style="margin: 0; color: #7c3aed; font-size: 1.2rem;">out of 100</p>
-                                    <p style="margin: 0; color: #7c3aed; font-size: 0.9rem; margin-top: 0.5rem;">
-                                        {grade_source}
-                                    </p>
-                                </div>
-                            """.format(
-                                final_grade=result['final_grade'],
-                                grade_source="Professor's grade (overrides AI)" if result['professor_grade'] is not None else "AI grade"
-                            ), unsafe_allow_html=True)
-                            
-                            # Feedback sections
-                            col1, col2 = st.columns(2)
-                            
-                            with col1:
-                                # AI Feedback
-                                st.markdown("### 🤖 AI Feedback")
-                                st.markdown(f"""
-                                    <div style="
-                                        background-color: #f8fafc;
-                                        padding: 1.5rem;
-                                        border-radius: 0.5rem;
-                                        border: 1px solid #e2e8f0;
-                                        margin-bottom: 1rem;
-                                    ">
-                                        {result['ai_feedback']}
-                                    </div>
-                                """, unsafe_allow_html=True)
-                            
-                            with col2:
-                                # Professor Feedback
-                                if result['professor_feedback']:
+                                with col2:
                                     st.markdown("### 👨‍🏫 Professor Feedback")
                                     st.markdown(f"""
                                         <div style="
@@ -541,24 +491,7 @@ if selected_class['assignments']:
                                             {result['professor_feedback']}
                                         </div>
                                     """, unsafe_allow_html=True)
-                                else:
-                                    st.markdown("### 👨‍🏫 Professor Feedback")
-                                    st.markdown("""
-                                        <div style="
-                                            background-color: #fef3c7;
-                                            padding: 1.5rem;
-                                            border-radius: 0.5rem;
-                                            border: 1px solid #fde68a;
-                                            margin-bottom: 1rem;
-                                        ">
-                                            No professor feedback yet
-                                        </div>
-                                    """, unsafe_allow_html=True)
-                            
-                            # Show submitted code
-                            # with st.expander("Your Submitted Code", expanded=False):
-                            st.code(result['code'], language='python')
-                            
+                                st.code(result['code'], language='python')
                         except requests.RequestException as e:
                             st.error(f"Submission failed: {str(e)}")
                     else:
@@ -1163,58 +1096,41 @@ def show_submit_code():
                                 """.format(ai_grade=result['ai_grade']), unsafe_allow_html=True)
                             
                             with col2:
-                                # Professor Grade Section
+                                # Final Grade Section
                                 if result['professor_grade'] is not None:
                                     st.markdown("""
                                         <div style="
-                                            background-color: #f0fdf4;
-                                            padding: 1.5rem;
+                                            background-color: #fef7ff;
+                                            padding: 2rem;
                                             border-radius: 0.5rem;
                                             text-align: center;
-                                            border: 1px solid #bbf7d0;
-                                            margin-bottom: 1rem;
+                                            border: 2px solid #c084fc;
+                                            margin-bottom: 2rem;
                                         ">
-                                            <h3 style="margin: 0 0 1rem 0; color: #166534;">👨‍🏫 Professor Grade</h3>
-                                            <h1 style="margin: 0; color: #166534; font-size: 2.5rem;">{professor_grade}</h1>
-                                            <p style="margin: 0; color: #166534; font-size: 1rem;">out of 100</p>
+                                            <h2 style="margin: 0 0 1rem 0; color: #7c3aed;">📊 Final Grade</h2>
+                                            <h1 style="margin: 0; color: #7c3aed; font-size: 3rem;">{professor_grade}</h1>
+                                            <p style="margin: 0; color: #7c3aed; font-size: 1.2rem;">out of 100</p>
+                                            <p style="margin: 0; color: #7c3aed; font-size: 0.9rem; margin-top: 0.5rem;">
+                                                Professor's grade (overrides AI)
+                                            </p>
                                         </div>
-                                    """.format(professor_grade=result['professor_grade']), unsafe_allow_html=True)
+                                    """.format(
+                                        professor_grade=result['professor_grade']
+                                    ), unsafe_allow_html=True)
                                 else:
                                     st.markdown("""
                                         <div style="
-                                            background-color: #fef3c7;
-                                            padding: 1.5rem;
+                                            background-color: #fef7ff;
+                                            padding: 2rem;
                                             border-radius: 0.5rem;
                                             text-align: center;
-                                            border: 1px solid #fde68a;
-                                            margin-bottom: 1rem;
+                                            border: 2px solid #c084fc;
+                                            margin-bottom: 2rem;
                                         ">
-                                            <h3 style="margin: 0 0 1rem 0; color: #92400e;">👨‍🏫 Professor Grade</h3>
-                                            <p style="margin: 0; color: #92400e; font-size: 1rem;">Not graded yet</p>
+                                            <h2 style="margin: 0 0 1rem 0; color: #7c3aed;">📊 Final Grade</h2>
+                                            <h1 style="margin: 0; color: #7c3aed; font-size: 2rem;">Wait for Professor Feedback</h1>
                                         </div>
                                     """, unsafe_allow_html=True)
-                            
-                            # Final Grade Section
-                            st.markdown("""
-                                <div style="
-                                    background-color: #fef7ff;
-                                    padding: 2rem;
-                                    border-radius: 0.5rem;
-                                    text-align: center;
-                                    border: 2px solid #c084fc;
-                                    margin-bottom: 2rem;
-                                ">
-                                    <h2 style="margin: 0 0 1rem 0; color: #7c3aed;">📊 Final Grade</h2>
-                                    <h1 style="margin: 0; color: #7c3aed; font-size: 3rem;">{final_grade}</h1>
-                                    <p style="margin: 0; color: #7c3aed; font-size: 1.2rem;">out of 100</p>
-                                    <p style="margin: 0; color: #7c3aed; font-size: 0.9rem; margin-top: 0.5rem;">
-                                        {grade_source}
-                                    </p>
-                                </div>
-                            """.format(
-                                final_grade=result['final_grade'],
-                                grade_source="Professor's grade (overrides AI)" if result['professor_grade'] is not None else "AI grade"
-                            ), unsafe_allow_html=True)
                             
                             # Feedback sections
                             col1, col2 = st.columns(2)

@@ -175,7 +175,7 @@ if selected_class_id:
                                 )
                                 response.raise_for_status()
                                 st.success("Assignment updated successfully!")
-                                st.experimental_rerun()
+                                st.rerun()
                             except requests.RequestException as e:
                                 st.error(f"Error updating assignment: {e}")
 
