@@ -1,12 +1,26 @@
+# =========================
+# Student View Page
+# =========================
+# This file implements the dashboard for students to view and enroll in classes.
+# Students can see their enrolled classes, available classes, and navigate to class details or grades.
+
 import streamlit as st
 import requests
 import os
 from dotenv import load_dotenv
 import time
 
+# =========================
+# Environment and API Setup
+# =========================
+
 # Load environment variables
 load_dotenv()
 API_URL = os.getenv('API_URL', 'http://localhost:8000')
+
+# =========================
+# Page Configuration and Sidebar
+# =========================
 
 # Page configuration
 st.set_page_config(
@@ -16,7 +30,17 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS
+# Hide default sidebar
+st.markdown("""
+    <style>
+        [data-testid="stSidebarNav"] {display: none;}
+    </style>
+""", unsafe_allow_html=True)
+
+# =========================
+# Custom CSS Styling
+# =========================
+
 st.markdown("""
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <style>
@@ -70,6 +94,10 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# =========================
+# Header and Access Control
+# =========================
+
 # Header
 st.markdown('<div class="header">', unsafe_allow_html=True)
 st.markdown('<h1>Student View</h1>', unsafe_allow_html=True)
@@ -78,12 +106,15 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 # Check if user is logged in and is a student
 if 'user' not in st.session_state:
-    st.error("Please login first")
-    st.stop()
+    st.switch_page("login.py")
 
 if st.session_state.user.get('is_professor'):
     st.error("This page is for students only")
     st.stop()
+
+# =========================
+# Fetch and Organize Classes
+# =========================
 
 # Get student's classes (both enrolled and available)
 try:
@@ -117,6 +148,10 @@ for class_data in all_classes:
             st.session_state.enrolled_classes.append(class_data['id'])
     else:
         available_classes.append(class_data)
+
+# =========================
+# UI: Enrolled and Available Classes
+# =========================
 
 # Create two columns for the sections
 col1, col2 = st.columns(2)
@@ -179,13 +214,43 @@ with col2:
 # Add a divider between sections
 st.markdown("---")
 
+# =========================
+# Navigation and Logout Buttons
+# =========================
+
 # Navigation and logout buttons at the bottom
-col1, col2 = st.columns(2)
+col1, col2, col3 = st.columns(3)
 with col1:
     if st.button("Refresh Page"):
         st.rerun()
 with col2:
+    if st.button("View All Grades"):
+        st.switch_page("pages/4_Grades_View.py")
+with col3:
     if st.button("Logout"):
         for key in list(st.session_state.keys()):
             del st.session_state[key]
-        st.switch_page("login.py") 
+        st.switch_page("login.py")
+
+# =========================
+# Sidebar Navigation
+# =========================
+
+# Sidebar navigation for students
+if 'user' in st.session_state:
+    if st.session_state.user.get('is_professor'):
+        with st.sidebar:
+            st.title('Professor Menu')
+            st.page_link('pages/2_Professor_View.py', label='Professor View', icon='👨‍🏫')
+            st.page_link('pages/5_Prompt_Management.py', label='Prompt Management', icon='📝')
+            st.page_link('pages/create_class.py', label='Create Class', icon='➕')
+            st.page_link('pages/4_Grades_View.py', label='Grades View', icon='📊')
+            st.page_link('pages/6_Assignment_Management.py', label='Assignment Management', icon='🗂️')
+            st.page_link('login.py', label='Logout', icon='🚪')
+    else:
+        with st.sidebar:
+            st.title('Student Menu')
+            st.page_link('pages/3_Student_View.py', label='Student View', icon='👨‍🎓')
+            st.page_link('pages/1_Home.py', label='Home', icon='🏠')
+            st.page_link('pages/4_Grades_View.py', label='Grades View', icon='📊')
+            st.page_link('login.py', label='Logout', icon='🚪') 

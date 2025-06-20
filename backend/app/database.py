@@ -1,3 +1,9 @@
+# =========================
+# Database Configuration and Session Management
+# =========================
+# This file sets up the SQLAlchemy engine, session factory, and base class for ORM models.
+# It also provides utilities for database connection testing and troubleshooting.
+
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -7,14 +13,22 @@ import time
 import logging
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 
-# Configure logging
+# =========================
+# Logging and Environment Setup
+# =========================
+
+# Configure logging for database operations
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Load environment variables
+# Load environment variables from .env file
 load_dotenv()
 
-# Database configuration with explicit authentication settings
+# =========================
+# Database Connection Settings
+# =========================
+
+# Read database connection parameters from environment variables
 POSTGRES_USER = os.getenv("POSTGRES_USER", "postgres")
 POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "postgres")
 POSTGRES_DB = os.getenv("POSTGRES_DB", "grading_db")
@@ -28,6 +42,10 @@ logger.info(f"Attempting to connect to database at {POSTGRES_HOST}:{POSTGRES_POR
 logger.info(f"Using database: {POSTGRES_DB}")
 logger.info(f"Using user: {POSTGRES_USER}")
 logger.info(f"Using password: {POSTGRES_PASSWORD}")
+
+# =========================
+# SQLAlchemy Engine and Session
+# =========================
 
 # Create engine with connection pool settings and explicit authentication
 engine = create_engine(
@@ -44,15 +62,20 @@ engine = create_engine(
     }
 )
 
-# Create session factory
+# Create session factory for database sessions
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Create base class for models
+# Create base class for ORM models
 Base = declarative_base()
+
+# =========================
+# Database Session Utility
+# =========================
 
 def get_db():
     """
-    Get database session with automatic cleanup.
+    Dependency for FastAPI endpoints to get a database session.
+    Yields a session and ensures it is closed after use.
     """
     db = SessionLocal()
     try:
@@ -60,9 +83,15 @@ def get_db():
     finally:
         db.close()
 
+# =========================
+# Database Connection Testing
+# =========================
+
 def test_db_connection(max_retries=5, retry_delay=5):
     """
     Test database connection with retries and detailed error reporting.
+    Attempts to connect and run a simple query, providing troubleshooting tips on failure.
+    Raises on failure after all retries.
     """
     for attempt in range(max_retries):
         try:

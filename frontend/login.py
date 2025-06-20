@@ -101,6 +101,9 @@ st.markdown("""
 
         .success { background-color: var(--success-bg); color: var(--success-text); }
         .error { background-color: var(--error-bg); color: var(--error-text); }
+
+        /*where we hide the default pages */
+        [data-testid="stSidebarNav"] {display: none;}
     </style>
 """, unsafe_allow_html=True)
 
@@ -160,4 +163,11 @@ st.markdown("""
 if st.button("Sign up here"):
     st.switch_page("pages/1_Signup.py")
 
-st.markdown('</div>', unsafe_allow_html=True) 
+st.markdown('</div>', unsafe_allow_html=True)
+
+# Sidebar navigation for login/signup only
+if 'token' not in st.session_state:
+    with st.sidebar:
+        st.title('Navigation')
+        st.page_link('login.py', label='Login', icon='🔐')
+        st.page_link('pages/1_Signup.py', label='Sign Up', icon='📝') 

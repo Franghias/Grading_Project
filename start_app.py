@@ -60,7 +60,7 @@ def start_application():
         print("\nShutting down application...")
         backend_process.terminate()
         frontend_process.terminate()
-        run_command("docker-compose down -v", cwd=current_dir)
+        run_command("docker-compose down", cwd=current_dir)
         print("Application shut down successfully!")
 
 if __name__ == "__main__":

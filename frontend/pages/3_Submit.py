@@ -1,12 +1,26 @@
+# =========================
+# Submit Assignment Page
+# =========================
+# This file implements the submission page for students to submit code for assignments.
+# Students can select a class and assignment, enter or upload code, and submit for AI grading.
+
 import streamlit as st
 import requests
 import os
 from dotenv import load_dotenv
 import time
 
+# =========================
+# Environment and API Setup
+# =========================
+
 # Load environment variables
 load_dotenv()
 API_URL = os.getenv('API_URL', 'http://localhost:8000')
+
+# =========================
+# Page Configuration and Sidebar
+# =========================
 
 # Page configuration
 st.set_page_config(
@@ -16,7 +30,17 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS
+# Hide default sidebar
+st.markdown("""
+    <style>
+        [data-testid="stSidebarNav"] {display: none;}
+    </style>
+""", unsafe_allow_html=True)
+
+# =========================
+# Custom CSS Styling
+# =========================
+
 st.markdown("""
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <style>
@@ -72,6 +96,10 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# =========================
+# Header and Access Control
+# =========================
+
 # Header
 st.markdown('<div class="header">', unsafe_allow_html=True)
 st.markdown('<h1>Submit Assignment</h1>', unsafe_allow_html=True)
@@ -80,8 +108,11 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 # Check if user is logged in
 if 'user' not in st.session_state:
-    st.error("Please login first")
-    st.stop()
+    st.switch_page("login.py")
+
+# =========================
+# Fetch Classes and Assignments
+# =========================
 
 # Get user's enrolled classes
 try:
@@ -99,7 +130,7 @@ if not classes:
     st.warning("You are not enrolled in any classes")
     st.stop()
 
-# Class selection
+# Class selection dropdown
 selected_class = st.selectbox(
     "Select a class",
     options=classes,
@@ -107,7 +138,7 @@ selected_class = st.selectbox(
 )
 
 if selected_class:
-    # Get assignments for the selected class
+    # Fetch assignments for the selected class
     try:
         response = requests.get(
             f"{API_URL}/classes/{selected_class['id']}/assignments/",
@@ -122,7 +153,7 @@ if selected_class:
     if not assignments:
         st.warning("No assignments found for this class")
     else:
-        # Assignment selection
+        # Assignment selection dropdown
         selected_assignment = st.selectbox(
             "Select an assignment",
             options=assignments,
@@ -130,11 +161,14 @@ if selected_class:
         )
 
         if selected_assignment:
-            # Submission form
+            # -------------------------
+            # Submission Form
+            # -------------------------
             st.markdown('<div class="card">', unsafe_allow_html=True)
             st.markdown(f"### {selected_assignment['name']}")
             if selected_assignment.get('description'):
                 st.markdown(selected_assignment['description'])
+            st.info('The AI will grade your code using the assignment description above as context.')
             
             # Code input
             code = st.text_area(
@@ -183,4 +217,26 @@ if selected_class:
                     except requests.RequestException as e:
                         st.error(f"Error submitting code: {str(e)}")
             
-            st.markdown('</div>', unsafe_allow_html=True) 
+            st.markdown('</div>', unsafe_allow_html=True)
+
+# =========================
+# Sidebar Navigation
+# =========================
+
+if 'user' in st.session_state:
+    if st.session_state.user.get('is_professor'):
+        with st.sidebar:
+            st.title('Professor Menu')
+            st.page_link('pages/2_Professor_View.py', label='Professor View', icon='👨‍🏫')
+            st.page_link('pages/5_Prompt_Management.py', label='Prompt Management', icon='📝')
+            st.page_link('pages/create_class.py', label='Create Class', icon='➕')
+            st.page_link('pages/4_Grades_View.py', label='Grades View', icon='📊')
+            st.page_link('pages/6_Assignment_Management.py', label='Assignment Management', icon='🗂️')
+            st.page_link('login.py', label='Logout', icon='🚪')
+    else:
+        with st.sidebar:
+            st.title('Student Menu')
+            st.page_link('pages/3_Student_View.py', label='Student View', icon='👨‍🎓')
+            st.page_link('pages/1_Home.py', label='Home', icon='🏠')
+            st.page_link('pages/4_Grades_View.py', label='Grades View', icon='📊')
+            st.page_link('login.py', label='Logout', icon='🚪') 

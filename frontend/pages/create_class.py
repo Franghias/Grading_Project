@@ -1,14 +1,28 @@
+# =========================
+# Create Class Page
+# =========================
+# This file implements the class creation interface for professors.
+# Professors can create a new class, set its details, and automatically generate default assignments.
+# Includes form validation, API calls, and sidebar navigation.
+
 import streamlit as st
 import requests
 import os
 from dotenv import load_dotenv
 import time
 
+# =========================
+# Environment and API Setup
+# =========================
+
 # Load environment variables
 load_dotenv()
 API_URL = os.getenv('API_URL', 'http://localhost:8000')
 
-# Default assignments
+# =========================
+# Default Assignments
+# =========================
+
 DEFAULT_ASSIGNMENTS = [
     {
         "name": "Hello World",
@@ -32,7 +46,10 @@ DEFAULT_ASSIGNMENTS = [
     }
 ]
 
-# Page configuration
+# =========================
+# Page Configuration and Sidebar
+# =========================
+
 st.set_page_config(
     page_title="Create Class",
     page_icon="📚",
@@ -40,7 +57,17 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS
+# Hide default sidebar
+st.markdown("""
+    <style>
+        [data-testid="stSidebarNav"] {display: none;}
+    </style>
+""", unsafe_allow_html=True)
+
+# =========================
+# Custom CSS Styling
+# =========================
+
 st.markdown("""
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <style>
@@ -114,6 +141,10 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# =========================
+# Header and Access Control
+# =========================
+
 # Header
 st.markdown('<div class="header">', unsafe_allow_html=True)
 st.markdown('<h1>Create Class</h1>', unsafe_allow_html=True)
@@ -122,14 +153,16 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 # Check if user is logged in and is a professor
 if 'user' not in st.session_state:
-    st.error("Please login first")
-    st.stop()
+    st.switch_page("login.py")
 
 if not st.session_state.user.get('is_professor'):
     st.error("This page is for professors only")
     st.stop()
 
-# Create class form
+# =========================
+# Create Class Form
+# =========================
+
 st.markdown('<div class="card">', unsafe_allow_html=True)
 st.markdown("### Create New Class")
 
@@ -247,4 +280,26 @@ with st.form("create_class_form"):
                 else:
                     st.error(f"Error creating class: {error_msg}")
 
-st.markdown('</div>', unsafe_allow_html=True) 
+st.markdown('</div>', unsafe_allow_html=True)
+
+# =========================
+# Sidebar Navigation
+# =========================
+
+if 'user' in st.session_state:
+    if st.session_state.user.get('is_professor'):
+        with st.sidebar:
+            st.title('Professor Menu')
+            st.page_link('pages/2_Professor_View.py', label='Professor View', icon='👨‍🏫')
+            st.page_link('pages/5_Prompt_Management.py', label='Prompt Management', icon='📝')
+            st.page_link('pages/create_class.py', label='Create Class', icon='➕')
+            st.page_link('pages/4_Grades_View.py', label='Grades View', icon='📊')
+            st.page_link('pages/6_Assignment_Management.py', label='Assignment Management', icon='🗂️')
+            st.page_link('login.py', label='Logout', icon='🚪')
+    else:
+        with st.sidebar:
+            st.title('Student Menu')
+            st.page_link('pages/3_Student_View.py', label='Student View', icon='👨‍🎓')
+            st.page_link('pages/1_Home.py', label='Home', icon='🏠')
+            st.page_link('pages/4_Grades_View.py', label='Grades View', icon='📊')
+            st.page_link('login.py', label='Logout', icon='🚪') 

@@ -1,3 +1,9 @@
+# =========================
+# Home Page (Student/Professor Dashboard)
+# =========================
+# This file implements the main dashboard for both students and professors.
+# It displays class information, assignments, submissions, and grades, and provides navigation to other pages.
+
 import streamlit as st
 import requests
 import os
@@ -8,9 +14,9 @@ from itertools import cycle
 import json
 from datetime import datetime
 
-# Load environment variables
-load_dotenv()
-API_URL = os.getenv('API_URL', 'http://localhost:8000')
+# =========================
+# Page Configuration and Sidebar
+# =========================
 
 # Page configuration
 st.set_page_config(
@@ -20,7 +26,33 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS
+# Hide default sidebar and show custom sidebar for students
+st.markdown("""
+    <style>
+        [data-testid="stSidebarNav"] {display: none;}
+    </style>
+""", unsafe_allow_html=True)
+
+if 'user' in st.session_state and not st.session_state.user.get('is_professor'):
+    with st.sidebar:
+        st.title('Student Menu')
+        st.page_link('pages/3_Student_View.py', label='Student View', icon='👨‍🎓')
+        st.page_link('pages/1_Home.py', label='Home', icon='🏠')
+        st.page_link('pages/4_Grades_View.py', label='Grades View', icon='📊')
+        st.page_link('login.py', label='Logout', icon='🚪')
+
+# =========================
+# Environment and API Setup
+# =========================
+
+# Load environment variables
+load_dotenv()
+API_URL = os.getenv('API_URL', 'http://localhost:8000')
+
+# =========================
+# Custom CSS Styling
+# =========================
+
 st.markdown("""
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <style>
@@ -74,23 +106,67 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# =========================
+# Authentication and Navigation
+# =========================
+
 # Check if user is logged in
 if 'token' not in st.session_state:
     st.warning("Please login first")
     st.switch_page("login.py")
 
-# If user is a student and no class is selected, redirect to Student View
+# Redirect based on user role and class selection
 if not st.session_state.user.get('is_professor'):
     if 'selected_class' not in st.session_state:
         st.warning("Please select a class from the Student View")
         st.switch_page("pages/3_Student_View.py")
 elif 'selected_class' not in st.session_state:
-    # If user is a professor, redirect to Professor View
     st.warning("Please go to Professor View to manage your classes")
     st.switch_page("pages/2_Professor_View.py")
 
-# Get the selected class
+# =========================
+# Main Dashboard Logic
+# =========================
+
+# Get the selected class from session state
 selected_class = st.session_state.selected_class
+
+# -------------------------
+# Helper: Get user submissions for a class
+# -------------------------
+def get_user_submissions_for_class(class_id):
+    """
+    Fetch all submissions for the current user for a given class.
+    Returns a list of submission dicts.
+    """
+    try:
+        response = requests.get(
+            f"{API_URL}/submissions/",
+            headers={"Authorization": f"Bearer {st.session_state.token}"}
+        )
+        response.raise_for_status()
+        all_submissions = response.json()
+        # Filter submissions for the current class
+        class_submissions = [sub for sub in all_submissions if sub.get('class_id') == class_id]
+        return class_submissions
+    except requests.RequestException as e:
+        st.error(f"Error fetching submissions: {str(e)}")
+        return []
+
+# Get user submissions for the current class
+user_submissions = get_user_submissions_for_class(selected_class['id'])
+
+# Create a dictionary to map assignment_id to submissions
+assignment_submissions = {}
+for submission in user_submissions:
+    assignment_id = submission.get('assignment_id')
+    if assignment_id not in assignment_submissions:
+        assignment_submissions[assignment_id] = []
+    assignment_submissions[assignment_id].append(submission)
+
+# -------------------------
+# Header and Class Info
+# -------------------------
 
 # Header
 st.markdown('<div class="header">', unsafe_allow_html=True)
@@ -98,10 +174,10 @@ st.markdown(f'<h1>{selected_class["name"]} ({selected_class["code"]})</h1>', uns
 st.markdown(f'<p>Welcome, {st.session_state.user["name"]}!</p>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# Main content
+# Main content container
 st.markdown('<div class="container mx-auto px-4 py-8">', unsafe_allow_html=True)
 
-# Class Information
+# Class Information Card
 st.markdown('<div class="card">', unsafe_allow_html=True)
 st.markdown("### Class Information")
 st.markdown(f"**Description:** {selected_class['description'] or 'No description available'}")
@@ -112,16 +188,193 @@ for professor in selected_class['professors']:
     st.markdown(f"- {professor['name']} ({professor['email']})")
 st.markdown('</div>', unsafe_allow_html=True)
 
-# Assignments
+# -------------------------
+# Assignments Section
+# -------------------------
+
 st.markdown('<div class="card">', unsafe_allow_html=True)
 st.markdown("### Assignments")
 if selected_class['assignments']:
     for assignment in selected_class['assignments']:
-        with st.expander(f"{assignment['name']}"):
+        with st.expander(f"{assignment['name']}", expanded=False):
             st.markdown(f"**Description:** {assignment['description'] or 'No description available'}")
+            # Show existing submissions and grades for this assignment
+            assignment_id = assignment['id']
+            if assignment_id in assignment_submissions:
+                submissions = assignment_submissions[assignment_id]
+                if submissions:
+                    st.markdown("#### Your Submissions")
+                    for i, submission in enumerate(submissions, 1):
+                        st.markdown(f"**Submission {i} - {submission['created_at'][:10]}**")
+                        # Display grades in two sections
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            # AI Grade Section
+                            if submission['ai_grade'] is not None:
+                                st.markdown("""
+                                    <div style="
+                                        background-color: #f0f9ff;
+                                        padding: 1.5rem;
+                                        border-radius: 0.5rem;
+                                        text-align: center;
+                                        border: 1px solid #bae6fd;
+                                        margin-bottom: 1rem;
+                                    ">
+                                        <h3 style="margin: 0 0 1rem 0; color: #0369a1;">🤖 AI Grade</h3>
+                                        <h1 style="margin: 0; color: #0369a1; font-size: 2.5rem;">{ai_grade}</h1>
+                                        <p style="margin: 0; color: #0369a1; font-size: 1rem;">out of 100</p>
+                                    </div>
+                                """.format(ai_grade=submission['ai_grade']), unsafe_allow_html=True)
+                            else:
+                                st.markdown("""
+                                    <div style="
+                                        background-color: #fef3c7;
+                                        padding: 1.5rem;
+                                        border-radius: 0.5rem;
+                                        text-align: center;
+                                        border: 1px solid #fde68a;
+                                        margin-bottom: 1rem;
+                                    ">
+                                        <h3 style="margin: 0 0 1rem 0; color: #92400e;">🤖 AI Grade</h3>
+                                        <p style="margin: 0; color: #92400e; font-size: 1rem;">Not graded yet</p>
+                                    </div>
+                                """, unsafe_allow_html=True)
+                        with col2:
+                            # Professor Grade Section
+                            if submission['professor_grade'] is not None:
+                                st.markdown("""
+                                    <div style="
+                                        background-color: #f0fdf4;
+                                        padding: 1.5rem;
+                                        border-radius: 0.5rem;
+                                        text-align: center;
+                                        border: 1px solid #bbf7d0;
+                                        margin-bottom: 1rem;
+                                    ">
+                                        <h3 style="margin: 0 0 1rem 0; color: #166534;">👨‍🏫 Professor Grade</h3>
+                                        <h1 style="margin: 0; color: #166534; font-size: 2.5rem;">{professor_grade}</h1>
+                                        <p style="margin: 0; color: #166534; font-size: 1rem;">out of 100</p>
+                                    </div>
+                                """.format(professor_grade=submission['professor_grade']), unsafe_allow_html=True)
+                            else:
+                                st.markdown("""
+                                    <div style="
+                                        background-color: #fef3c7;
+                                        padding: 1.5rem;
+                                        border-radius: 0.5rem;
+                                        text-align: center;
+                                        border: 1px solid #fde68a;
+                                        margin-bottom: 1rem;
+                                    ">
+                                        <h3 style="margin: 0 0 1rem 0; color: #92400e;">👨‍🏫 Professor Grade</h3>
+                                        <p style="margin: 0; color: #92400e; font-size: 1rem;">Not graded yet</p>
+                                    </div>
+                                """, unsafe_allow_html=True)
+                        # Final Grade Section
+                        if submission['professor_grade'] is not None:
+                            st.markdown("""
+                                <div style="
+                                    background-color: #fef7ff;
+                                    padding: 2rem;
+                                    border-radius: 0.5rem;
+                                    text-align: center;
+                                    border: 2px solid #c084fc;
+                                    margin-bottom: 2rem;
+                                ">
+                                    <h2 style="margin: 0 0 1rem 0; color: #7c3aed;">📊 Final Grade</h2>
+                                    <h1 style="margin: 0; color: #7c3aed; font-size: 3rem;">{professor_grade}</h1>
+                                    <p style="margin: 0; color: #7c3aed; font-size: 1.2rem;">out of 100</p>
+                                    <p style="margin: 0; color: #7c3aed; font-size: 0.9rem; margin-top: 0.5rem;">
+                                        Professor's grade
+                                    </p>
+                                </div>
+                            """.format(
+                                professor_grade=submission['professor_grade']
+                            ), unsafe_allow_html=True)
+                        else:
+                            st.markdown("""
+                                <div style="
+                                    background-color: #fef7ff;
+                                    padding: 2rem;
+                                    border-radius: 0.5rem;
+                                    text-align: center;
+                                    border: 2px solid #c084fc;
+                                    margin-bottom: 2rem;
+                                ">
+                                    <h2 style="margin: 0 0 1rem 0; color: #7c3aed;">📊 Final Grade</h2>
+                                    <h1 style="margin: 0; color: #7c3aed; font-size: 2rem;">wait for professor feedback</h1>
+                                </div>
+                            """, unsafe_allow_html=True)
+                        
+                        # Feedback sections
+                        col1, col2 = st.columns(2)
+                        
+                        with col1:
+                            # AI Feedback
+                            st.markdown("### 🤖 AI Feedback")
+                            if submission['ai_feedback']:
+                                st.markdown(f"""
+                                    <div style="
+                                        background-color: #f8fafc;
+                                        padding: 1.5rem;
+                                        border-radius: 0.5rem;
+                                        border: 1px solid #e2e8f0;
+                                        margin-bottom: 1rem;
+                                    ">
+                                        {submission['ai_feedback']}
+                                    </div>
+                                """, unsafe_allow_html=True)
+                            else:
+                                st.markdown("""
+                                    <div style="
+                                        background-color: #fef3c7;
+                                        padding: 1.5rem;
+                                        border-radius: 0.5rem;
+                                        border: 1px solid #fde68a;
+                                        margin-bottom: 1rem;
+                                    ">
+                                        No AI feedback available
+                                    </div>
+                                """, unsafe_allow_html=True)
+                        
+                        with col2:
+                            # Professor Feedback
+                            st.markdown("### 👨‍🏫 Professor Feedback")
+                            if submission['professor_feedback']:
+                                st.markdown(f"""
+                                    <div style="
+                                        background-color: #f0fdf4;
+                                        padding: 1.5rem;
+                                        border-radius: 0.5rem;
+                                        border: 1px solid #bbf7d0;
+                                        margin-bottom: 1rem;
+                                    ">
+                                        {submission['professor_feedback']}
+                                    </div>
+                                """, unsafe_allow_html=True)
+                            else:
+                                st.markdown("""
+                                    <div style="
+                                        background-color: #fef3c7;
+                                        padding: 1.5rem;
+                                        border-radius: 0.5rem;
+                                        border: 1px solid #fde68a;
+                                        margin-bottom: 1rem;
+                                    ">
+                                        No professor feedback yet
+                                    </div>
+                                """, unsafe_allow_html=True)
+                        
+                        # Show submitted code
+                        # with st.expander("Your Submitted Code", expanded=False):
+                        st.code(submission['code'], language='python')
+                else:
+                    st.info("No submissions yet for this assignment.")
+            else:
+                st.info("No submissions yet for this assignment.")
             
             # Submission form for this assignment
-            st.markdown("#### Submit Your Code")
+            st.markdown("#### Submit New Code")
             submission_method = st.radio(
                 "Choose how you want to submit your code:",
                 ["Type Code", "Upload File"],
@@ -181,34 +434,126 @@ if selected_class['assignments']:
                             
                             st.success("Submission successful!")
                             
-                            # Display grade
-                            st.markdown(f"""
+                            # Display grades in two sections
+                            col1, col2 = st.columns(2)
+                            
+                            with col1:
+                                # AI Grade Section
+                                st.markdown("""
+                                    <div style="
+                                        background-color: #f0f9ff;
+                                        padding: 1.5rem;
+                                        border-radius: 0.5rem;
+                                        text-align: center;
+                                        border: 1px solid #bae6fd;
+                                        margin-bottom: 1rem;
+                                    ">
+                                        <h3 style="margin: 0 0 1rem 0; color: #0369a1;">🤖 AI Grade</h3>
+                                        <h1 style="margin: 0; color: #0369a1; font-size: 2.5rem;">{ai_grade}</h1>
+                                        <p style="margin: 0; color: #0369a1; font-size: 1rem;">out of 100</p>
+                                    </div>
+                                """.format(ai_grade=result['ai_grade']), unsafe_allow_html=True)
+                            
+                            with col2:
+                                # Professor Grade Section
+                                if result['professor_grade'] is not None:
+                                    st.markdown("""
+                                        <div style="
+                                            background-color: #f0fdf4;
+                                            padding: 1.5rem;
+                                            border-radius: 0.5rem;
+                                            text-align: center;
+                                            border: 1px solid #bbf7d0;
+                                            margin-bottom: 1rem;
+                                        ">
+                                            <h3 style="margin: 0 0 1rem 0; color: #166534;">👨‍🏫 Professor Grade</h3>
+                                            <h1 style="margin: 0; color: #166534; font-size: 2.5rem;">{professor_grade}</h1>
+                                            <p style="margin: 0; color: #166534; font-size: 1rem;">out of 100</p>
+                                        </div>
+                                    """.format(professor_grade=result['professor_grade']), unsafe_allow_html=True)
+                                else:
+                                    st.markdown("""
+                                        <div style="
+                                            background-color: #fef3c7;
+                                            padding: 1.5rem;
+                                            border-radius: 0.5rem;
+                                            text-align: center;
+                                            border: 1px solid #fde68a;
+                                            margin-bottom: 1rem;
+                                        ">
+                                            <h3 style="margin: 0 0 1rem 0; color: #92400e;">👨‍🏫 Professor Grade</h3>
+                                            <p style="margin: 0; color: #92400e; font-size: 1rem;">Not graded yet</p>
+                                        </div>
+                                    """, unsafe_allow_html=True)
+                            
+                            # Final Grade Section
+                            st.markdown("""
                                 <div style="
-                                    background-color: #f0f9ff;
+                                    background-color: #fef7ff;
                                     padding: 2rem;
                                     border-radius: 0.5rem;
                                     text-align: center;
-                                    border: 1px solid #bae6fd;
+                                    border: 2px solid #c084fc;
                                     margin-bottom: 2rem;
                                 ">
-                                    <h1 style="margin: 0; color: #0369a1; font-size: 3rem;">{result['grade']}</h1>
-                                    <p style="margin: 0; color: #0369a1; font-size: 1.2rem;">out of 100</p>
+                                    <h2 style="margin: 0 0 1rem 0; color: #7c3aed;">📊 Final Grade</h2>
+                                    <h1 style="margin: 0; color: #7c3aed; font-size: 3rem;">{final_grade}</h1>
+                                    <p style="margin: 0; color: #7c3aed; font-size: 1.2rem;">out of 100</p>
+                                    <p style="margin: 0; color: #7c3aed; font-size: 0.9rem; margin-top: 0.5rem;">
+                                        {grade_source}
+                                    </p>
                                 </div>
-                            """, unsafe_allow_html=True)
+                            """.format(
+                                final_grade=result['final_grade'],
+                                grade_source="Professor's grade (overrides AI)" if result['professor_grade'] is not None else "AI grade"
+                            ), unsafe_allow_html=True)
                             
-                            # AI Feedback
-                            st.markdown("### AI Feedback")
-                            st.markdown(f"""
-                                <div style="
-                                    background-color: #f8fafc;
-                                    padding: 1.5rem;
-                                    border-radius: 0.5rem;
-                                    border: 1px solid #e2e8f0;
-                                    margin-bottom: 1rem;
-                                ">
-                                    {result['feedback']}
-                                </div>
-                            """, unsafe_allow_html=True)
+                            # Feedback sections
+                            col1, col2 = st.columns(2)
+                            
+                            with col1:
+                                # AI Feedback
+                                st.markdown("### 🤖 AI Feedback")
+                                st.markdown(f"""
+                                    <div style="
+                                        background-color: #f8fafc;
+                                        padding: 1.5rem;
+                                        border-radius: 0.5rem;
+                                        border: 1px solid #e2e8f0;
+                                        margin-bottom: 1rem;
+                                    ">
+                                        {result['ai_feedback']}
+                                    </div>
+                                """, unsafe_allow_html=True)
+                            
+                            with col2:
+                                # Professor Feedback
+                                if result['professor_feedback']:
+                                    st.markdown("### 👨‍🏫 Professor Feedback")
+                                    st.markdown(f"""
+                                        <div style="
+                                            background-color: #f0fdf4;
+                                            padding: 1.5rem;
+                                            border-radius: 0.5rem;
+                                            border: 1px solid #bbf7d0;
+                                            margin-bottom: 1rem;
+                                        ">
+                                            {result['professor_feedback']}
+                                        </div>
+                                    """, unsafe_allow_html=True)
+                                else:
+                                    st.markdown("### 👨‍🏫 Professor Feedback")
+                                    st.markdown("""
+                                        <div style="
+                                            background-color: #fef3c7;
+                                            padding: 1.5rem;
+                                            border-radius: 0.5rem;
+                                            border: 1px solid #fde68a;
+                                            margin-bottom: 1rem;
+                                        ">
+                                            No professor feedback yet
+                                        </div>
+                                    """, unsafe_allow_html=True)
                             
                             # Show submitted code
                             # with st.expander("Your Submitted Code", expanded=False):
@@ -226,11 +571,14 @@ else:
 st.markdown('</div>', unsafe_allow_html=True)
 
 # Navigation buttons
-col1, col2 = st.columns(2)
+col1, col2, col3 = st.columns(3)
 with col1:
     if st.button("Back to Student View"):
         st.switch_page("pages/3_Student_View.py")
 with col2:
+    if st.button("View All Grades"):
+        st.switch_page("pages/4_Grades_View.py")
+with col3:
     if st.button("Logout"):
         for key in list(st.session_state.keys()):
             del st.session_state[key]
@@ -410,6 +758,9 @@ st.markdown("""
 
         .success { background-color: var(--success-bg); color: var(--success-text); }
         .error { background-color: var(--error-bg); color: var(--error-text); }
+            
+        /*where we hide the default pages */
+        [data-testid="stSidebarNav"] {display: none;}
     </style>
 """, unsafe_allow_html=True)
 
@@ -450,7 +801,7 @@ def show_professor_interface():
     st.header("Professor Dashboard")
     
     # Create tabs for different professor functions
-    tab1, tab2, tab3, tab4 = st.tabs(["Classes", "View Submissions", "Custom Grading Code", "Grade with Custom Code"])
+    tab1, tab2, tab3, tab4 = st.tabs(["Classes", "View Submissions", "Custom Grading Prompt", "Grade with Custom Prompt"])
     
     with tab1:
         show_class_management()
@@ -459,10 +810,10 @@ def show_professor_interface():
         show_submissions()
     
     with tab3:
-        show_custom_grading_code()
+        show_custom_grading_prompt()
     
     with tab4:
-        show_grade_with_custom_code()
+        show_grade_with_custom_prompt()
 
 def show_class_management():
     st.subheader("Class Management")
@@ -546,75 +897,64 @@ def show_class_management():
     except Exception as e:
         st.error(f"Error loading classes: {str(e)}")
 
-def show_custom_grading_code():
-    st.subheader("Custom Grading Code")
-    
-    # Get sample code
+def show_custom_grading_prompt():
+    st.subheader("Custom Grading Prompt")
+    # Get sample prompt
     try:
-        response = requests.get(f"{API_URL}/grading/sample-code", headers=get_auth_header())
-        sample_code = response.json()["code"]
-        
-        st.write("Sample Grading Code:")
-        st.code(sample_code, language="python")
-        
-        st.write("Create Your Custom Grading Code:")
-        custom_code = st.text_area(
-            "Enter your grading code here",
+        response = requests.get(f"{API_URL}/grading/sample-prompt", headers=get_auth_header())
+        sample_prompt = response.json()["prompt"]
+        st.write("Sample Grading Prompt:")
+        st.code(sample_prompt, language="text")
+        st.write("Create Your Custom Grading Prompt:")
+        custom_prompt = st.text_area(
+            "Enter your grading prompt here",
             height=400,
-            help="Your code must include a 'grade_code' function that takes a string parameter and returns a tuple of (grade, feedback)"
+            help="You can use {code} as a placeholder for the student's code."
         )
-        
-        if st.button("Save Custom Code"):
-            if custom_code:
+        if st.button("Save Custom Prompt"):
+            if custom_prompt:
                 try:
                     response = requests.post(
-                        f"{API_URL}/grading/custom-code",
+                        f"{API_URL}/grading/custom-prompt",
                         headers=get_auth_header(),
-                        json={"code": custom_code}
+                        json={"prompt": custom_prompt}
                     )
-                    st.success("Custom grading code saved successfully!")
+                    st.success("Custom grading prompt saved successfully!")
                 except Exception as e:
-                    st.error(f"Error saving custom code: {str(e)}")
+                    st.error(f"Error saving custom prompt: {str(e)}")
             else:
-                st.warning("Please enter your custom grading code")
-                
+                st.warning("Please enter your custom grading prompt")
     except Exception as e:
         st.error(f"Error: {str(e)}")
 
-def show_grade_with_custom_code():
-    st.subheader("Grade with Custom Code")
-    
+def show_grade_with_custom_prompt():
+    st.subheader("Grade with Custom Prompt")
     # Get all submissions
     try:
         response = requests.get(f"{API_URL}/submissions/", headers=get_auth_header())
         submissions = response.json()
-        
         if submissions:
             submission_id = st.selectbox(
                 "Select a submission to grade",
                 options=[s["id"] for s in submissions],
                 format_func=lambda x: f"Submission {x}"
             )
-            
-            if st.button("Grade with Custom Code"):
+            if st.button("Grade with Custom Prompt"):
                 try:
                     response = requests.post(
-                        f"{API_URL}/submissions/grade-with-custom",
+                        f"{API_URL}/submissions/grade-with-custom-prompt",
                         headers=get_auth_header(),
                         json={"submission_id": submission_id}
                     )
                     result = response.json()
-                    
                     st.success("Grading completed!")
                     st.write(f"Grade: {result['grade']}")
                     st.write("Feedback:")
                     st.json(result['feedback'])
-                    
                 except Exception as e:
                     st.error(f"Error grading submission: {str(e)}")
         else:
             st.info("No submissions available to grade")
-            
     except Exception as e:
         st.error(f"Error: {str(e)}")
 
@@ -802,38 +1142,130 @@ def show_submit_code():
                             # Display results
                             st.success("Submission successful!")
                             
-                            # Display grade prominently at the top
-                            st.markdown(f"""
+                            # Display grades in two sections
+                            col1, col2 = st.columns(2)
+                            
+                            with col1:
+                                # AI Grade Section
+                                st.markdown("""
+                                    <div style="
+                                        background-color: #f0f9ff;
+                                        padding: 1.5rem;
+                                        border-radius: 0.5rem;
+                                        text-align: center;
+                                        border: 1px solid #bae6fd;
+                                        margin-bottom: 1rem;
+                                    ">
+                                        <h3 style="margin: 0 0 1rem 0; color: #0369a1;">🤖 AI Grade</h3>
+                                        <h1 style="margin: 0; color: #0369a1; font-size: 2.5rem;">{ai_grade}</h1>
+                                        <p style="margin: 0; color: #0369a1; font-size: 1rem;">out of 100</p>
+                                    </div>
+                                """.format(ai_grade=result['ai_grade']), unsafe_allow_html=True)
+                            
+                            with col2:
+                                # Professor Grade Section
+                                if result['professor_grade'] is not None:
+                                    st.markdown("""
+                                        <div style="
+                                            background-color: #f0fdf4;
+                                            padding: 1.5rem;
+                                            border-radius: 0.5rem;
+                                            text-align: center;
+                                            border: 1px solid #bbf7d0;
+                                            margin-bottom: 1rem;
+                                        ">
+                                            <h3 style="margin: 0 0 1rem 0; color: #166534;">👨‍🏫 Professor Grade</h3>
+                                            <h1 style="margin: 0; color: #166534; font-size: 2.5rem;">{professor_grade}</h1>
+                                            <p style="margin: 0; color: #166534; font-size: 1rem;">out of 100</p>
+                                        </div>
+                                    """.format(professor_grade=result['professor_grade']), unsafe_allow_html=True)
+                                else:
+                                    st.markdown("""
+                                        <div style="
+                                            background-color: #fef3c7;
+                                            padding: 1.5rem;
+                                            border-radius: 0.5rem;
+                                            text-align: center;
+                                            border: 1px solid #fde68a;
+                                            margin-bottom: 1rem;
+                                        ">
+                                            <h3 style="margin: 0 0 1rem 0; color: #92400e;">👨‍🏫 Professor Grade</h3>
+                                            <p style="margin: 0; color: #92400e; font-size: 1rem;">Not graded yet</p>
+                                        </div>
+                                    """, unsafe_allow_html=True)
+                            
+                            # Final Grade Section
+                            st.markdown("""
                                 <div style="
-                                    background-color: #f0f9ff;
+                                    background-color: #fef7ff;
                                     padding: 2rem;
                                     border-radius: 0.5rem;
                                     text-align: center;
-                                    border: 1px solid #bae6fd;
+                                    border: 2px solid #c084fc;
                                     margin-bottom: 2rem;
                                 ">
-                                    <h1 style="margin: 0; color: #0369a1; font-size: 3rem;">{result['grade']}</h1>
-                                    <p style="margin: 0; color: #0369a1; font-size: 1.2rem;">out of 100</p>
+                                    <h2 style="margin: 0 0 1rem 0; color: #7c3aed;">📊 Final Grade</h2>
+                                    <h1 style="margin: 0; color: #7c3aed; font-size: 3rem;">{final_grade}</h1>
+                                    <p style="margin: 0; color: #7c3aed; font-size: 1.2rem;">out of 100</p>
+                                    <p style="margin: 0; color: #7c3aed; font-size: 0.9rem; margin-top: 0.5rem;">
+                                        {grade_source}
+                                    </p>
                                 </div>
-                            """, unsafe_allow_html=True)
+                            """.format(
+                                final_grade=result['final_grade'],
+                                grade_source="Professor's grade (overrides AI)" if result['professor_grade'] is not None else "AI grade"
+                            ), unsafe_allow_html=True)
                             
-                            # AI Feedback section
-                            st.markdown("### AI Feedback")
-                            st.markdown(f"""
-                                <div style="
-                                    background-color: #f8fafc;
-                                    padding: 1.5rem;
-                                    border-radius: 0.5rem;
-                                    border: 1px solid #e2e8f0;
-                                    margin-bottom: 1rem;
-                                ">
-                                    {result['feedback']}
-                                </div>
-                            """, unsafe_allow_html=True)
+                            # Feedback sections
+                            col1, col2 = st.columns(2)
                             
-                            # Add a section to show the submitted code
-                            with st.expander("Your Submitted Code", expanded=False):
-                                st.code(result['code'], language='python')
+                            with col1:
+                                # AI Feedback
+                                st.markdown("### 🤖 AI Feedback")
+                                st.markdown(f"""
+                                    <div style="
+                                        background-color: #f8fafc;
+                                        padding: 1.5rem;
+                                        border-radius: 0.5rem;
+                                        border: 1px solid #e2e8f0;
+                                        margin-bottom: 1rem;
+                                    ">
+                                        {result['ai_feedback']}
+                                    </div>
+                                """, unsafe_allow_html=True)
+                            
+                            with col2:
+                                # Professor Feedback
+                                if result['professor_feedback']:
+                                    st.markdown("### 👨‍🏫 Professor Feedback")
+                                    st.markdown(f"""
+                                        <div style="
+                                            background-color: #f0fdf4;
+                                            padding: 1.5rem;
+                                            border-radius: 0.5rem;
+                                            border: 1px solid #bbf7d0;
+                                            margin-bottom: 1rem;
+                                        ">
+                                            {result['professor_feedback']}
+                                        </div>
+                                    """, unsafe_allow_html=True)
+                                else:
+                                    st.markdown("### 👨‍🏫 Professor Feedback")
+                                    st.markdown("""
+                                        <div style="
+                                            background-color: #fef3c7;
+                                            padding: 1.5rem;
+                                            border-radius: 0.5rem;
+                                            border: 1px solid #fde68a;
+                                            margin-bottom: 1rem;
+                                        ">
+                                            No professor feedback yet
+                                        </div>
+                                    """, unsafe_allow_html=True)
+                            
+                            # Show submitted code
+                            # with st.expander("Your Submitted Code", expanded=False):
+                            st.code(result['code'], language='python')
                             
                         except requests.RequestException as e:
                             st.error(f"Submission failed: {str(e)}")
@@ -896,4 +1328,15 @@ def show_submissions():
         st.error(f"Error: {str(e)}")
 
 if __name__ == "__main__":
-    main() 
+    main()
+
+if 'user' in st.session_state:
+    if st.session_state.user.get('is_professor'):
+        with st.sidebar:
+            st.title('Professor Menu')
+            st.page_link('pages/2_Professor_View.py', label='Professor View', icon='👨‍🏫')
+            st.page_link('pages/5_Prompt_Management.py', label='Prompt Management', icon='📝')
+            st.page_link('pages/create_class.py', label='Create Class', icon='➕')
+            st.page_link('pages/4_Grades_View.py', label='Grades View', icon='📊')
+            st.page_link('pages/6_Assignment_Management.py', label='Assignment Management', icon='🗂️')
+            st.page_link('login.py', label='Logout', icon='🚪') 

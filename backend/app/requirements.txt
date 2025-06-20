@@ -1,0 +1,2 @@
+# NOTE: After updating to prompt-based grading, run:
+# python -m app.run_migration 

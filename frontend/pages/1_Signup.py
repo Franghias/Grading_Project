@@ -1,3 +1,9 @@
+# =========================
+# Signup Page
+# =========================
+# This file implements the signup page for new users (students and professors).
+# It handles user input, validation, and account creation via the backend API.
+
 import streamlit as st
 import requests
 import os
@@ -5,9 +11,17 @@ from dotenv import load_dotenv
 import time
 import base64
 
+# =========================
+# Environment and API Setup
+# =========================
+
 # Load environment variables
 load_dotenv()
 API_URL = os.getenv('API_URL', 'http://localhost:8000')
+
+# =========================
+# Page Configuration and Sidebar
+# =========================
 
 # Page configuration
 st.set_page_config(
@@ -17,7 +31,17 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS (reusing the same style from login.py)
+# Hide default sidebar
+st.markdown("""
+    <style>
+        [data-testid="stSidebarNav"] {display: none;}
+    </style>
+""", unsafe_allow_html=True)
+
+# =========================
+# Custom CSS Styling
+# =========================
+
 st.markdown("""
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <style>
@@ -105,16 +129,42 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# =========================
+# Sidebar Navigation (if logged in)
+# =========================
+
+if 'user' in st.session_state:
+    if st.session_state.user.get('is_professor'):
+        with st.sidebar:
+            st.title('Professor Menu')
+            st.page_link('pages/2_Professor_View.py', label='Professor View', icon='👨‍🏫')
+            st.page_link('pages/5_Prompt_Management.py', label='Prompt Management', icon='📝')
+            st.page_link('pages/create_class.py', label='Create Class', icon='➕')
+            st.page_link('pages/4_Grades_View.py', label='Grades View', icon='📊')
+            st.page_link('pages/6_Assignment_Management.py', label='Assignment Management', icon='🗂️')
+            st.page_link('login.py', label='Logout', icon='🚪')
+    else:
+        with st.sidebar:
+            st.title('Student Menu')
+            st.page_link('pages/3_Student_View.py', label='Student View', icon='👨‍🎓')
+            st.page_link('pages/1_Home.py', label='Home', icon='🏠')
+            st.page_link('pages/4_Grades_View.py', label='Grades View', icon='📊')
+            st.page_link('login.py', label='Logout', icon='🚪')
+
+# =========================
+# Header and Main Content
+# =========================
+
 # Header
 st.markdown('<div class="header">', unsafe_allow_html=True)
 st.markdown('<h1>CS 1111 Grading System</h1>', unsafe_allow_html=True)
 st.markdown('<p>Create your account</p>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# Main content
+# Main content container
 st.markdown('<div class="container mx-auto px-4 py-8">', unsafe_allow_html=True)
 
-# Signup form
+# Signup form card
 st.markdown('<div class="card">', unsafe_allow_html=True)
 st.markdown('<h2 class="text-xl font-medium mb-6">Sign Up</h2>', unsafe_allow_html=True)
 
@@ -130,6 +180,9 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
+# -------------------------
+# Signup Form Logic
+# -------------------------
 with st.form("signup_form"):
     name = st.text_input("Full Name", placeholder="Enter your full name")
     user_id = st.text_input("ID", placeholder="Enter your 8-digit ID")
@@ -186,9 +239,15 @@ with st.form("signup_form"):
         else:
             st.error("Please fill in all fields")
 
-# Login link
+# -------------------------
+# Login Link
+# -------------------------
+
 st.markdown('<div class="mt-4">', unsafe_allow_html=True)
-st.markdown('<p>Already have an account? <a href="/login" target="_self">Login here</a></p>', unsafe_allow_html=True)
+
+if st.button("Go to Login Page"):
+        st.switch_page("login.py")
+
 st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown('</div>', unsafe_allow_html=True) 
