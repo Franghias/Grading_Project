@@ -353,10 +353,16 @@ def grade_code_with_prompt(code: str, prompt: str) -> tuple[float, str]:
         feedback_data = extract_json_from_text(ai_response)
         grade = float(feedback_data.get("grade", 0))
         feedback = feedback_data.get("feedback", {})
-        # Robustly handle feedback fields
-        feedback["bugs"] = safe_list(feedback.get("bugs"), ["No bugs identified"])
-        feedback["improvements"] = safe_list(feedback.get("improvements"), ["No improvements suggested"])
-        feedback["best_practices"] = safe_list(feedback.get("best_practices"), ["No best practices noted"])
+        # Defensive conversion: ensure all are lists
+        for key in ["bugs", "improvements", "best_practices"]:
+            val = feedback.get(key)
+            if not isinstance(val, list):
+                if val is None:
+                    feedback[key] = []
+                elif isinstance(val, str):
+                    feedback[key] = [val] if val.strip() else []
+                else:
+                    feedback[key] = list(val) if hasattr(val, '__iter__') else [val]
         formatted_feedback = format_feedback(feedback)
         logger.info("Successfully processed AI response (custom prompt)")
         return grade, formatted_feedback.strip()

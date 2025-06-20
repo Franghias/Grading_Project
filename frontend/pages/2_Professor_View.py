@@ -380,6 +380,6 @@ if st.session_state.user.get('is_professor'):
         st.title('Professor Menu')
         st.page_link('pages/2_Professor_View.py', label='Professor View', icon='👨‍🏫')
         st.page_link('pages/5_Prompt_Management.py', label='Prompt Management', icon='📝')
+        st.page_link('pages/7_Class_Statistics.py', label='Class Statistics', icon='📈')
         st.page_link('pages/create_class.py', label='Create Class', icon='➕')
-        st.page_link('pages/4_Grades_View.py', label='Grades View', icon='📊')
         st.page_link('login.py', label='Logout', icon='🚪') 
