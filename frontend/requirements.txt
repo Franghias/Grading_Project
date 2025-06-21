@@ -7,3 +7,5 @@ pandas>=1.3.0
 protobuf>=3.20.0
 pydantic>=2.0.0
 matplotlib>=3.10.3
+plotly>=5.0.0
+seaborn>=0.11.0

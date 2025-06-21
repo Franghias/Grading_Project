@@ -132,6 +132,37 @@ elif 'selected_class' not in st.session_state:
 selected_class = st.session_state.selected_class
 
 # -------------------------
+# Helper: Refresh class data to get latest assignments
+# -------------------------
+def refresh_class_data(class_id):
+    """
+    Fetch the latest class data including assignments from the API.
+    Updates the session state with fresh data.
+    """
+    try:
+        response = requests.get(
+            f"{API_URL}/classes/",
+            headers={"Authorization": f"Bearer {st.session_state.token}"}
+        )
+        response.raise_for_status()
+        all_classes = response.json()
+        
+        # Find the current class in the updated data
+        for class_data in all_classes:
+            if class_data['id'] == class_id:
+                st.session_state.selected_class = class_data
+                return class_data
+        
+        # If class not found, return the original data
+        return selected_class
+    except requests.RequestException as e:
+        st.error(f"Error refreshing class data: {str(e)}")
+        return selected_class
+
+# Refresh class data to get latest assignments
+selected_class = refresh_class_data(selected_class['id'])
+
+# -------------------------
 # Helper: Get user submissions for a class
 # -------------------------
 def get_user_submissions_for_class(class_id):
@@ -177,9 +208,15 @@ st.markdown('</div>', unsafe_allow_html=True)
 # Main content container
 st.markdown('<div class="container mx-auto px-4 py-8">', unsafe_allow_html=True)
 
-# Class Information Card
+# Class Information Card with refresh button
 st.markdown('<div class="card">', unsafe_allow_html=True)
-st.markdown("### Class Information")
+col1, col2 = st.columns([3, 1])
+with col1:
+    st.markdown("### Class Information")
+with col2:
+    if st.button("🔄 Refresh", type="secondary", help="Refresh class data and assignments"):
+        st.rerun()
+
 st.markdown(f"**Description:** {selected_class['description'] or 'No description available'}")
 st.markdown(f"**Prerequisites:** {selected_class['prerequisites'] or 'None'}")
 st.markdown(f"**Learning Objectives:** {selected_class['learning_objectives'] or 'None'}")

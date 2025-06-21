@@ -1006,3 +1006,163 @@ def edit_class_prompt(class_id: int, prompt: schemas.GradingPromptBase, db: Sess
     db.refresh(db_prompt)
     return db_prompt
 
+# =========================
+# Assignment Management Endpoints
+# =========================
+
+@app.get("/assignments/{assignment_id}", response_model=schemas.Assignment)
+async def get_assignment(
+    assignment_id: int,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(database.get_db)
+):
+    """Get a specific assignment by ID"""
+    # Find the assignment
+    db_assignment = db.query(models.Assignment).filter(models.Assignment.id == assignment_id).first()
+    if not db_assignment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Assignment not found"
+        )
+    
+    # Check if the current user has access to this assignment
+    # (either as a professor or student of the class)
+    db_class = db.query(models.Class).filter(models.Class.id == db_assignment.class_id).first()
+    if not db_class:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Class not found"
+        )
+    
+    # Check if user is a professor or student of the class
+    if current_user not in db_class.professors and current_user not in db_class.students:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to view this assignment"
+        )
+    
+    # Return the assignment
+    return {
+        "id": db_assignment.id,
+        "name": db_assignment.name,
+        "description": db_assignment.description,
+        "class_id": db_assignment.class_id,
+        "created_at": db_assignment.created_at,
+        "updated_at": db_assignment.updated_at
+    }
+
+@app.put("/assignments/{assignment_id}", response_model=schemas.Assignment)
+async def update_assignment(
+    assignment_id: int,
+    assignment_update: schemas.AssignmentUpdate,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(database.get_db)
+):
+    """Update an assignment (professor only)"""
+    if not current_user.is_professor:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only professors can update assignments"
+        )
+    
+    # Find the assignment
+    db_assignment = db.query(models.Assignment).filter(models.Assignment.id == assignment_id).first()
+    if not db_assignment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Assignment not found"
+        )
+    
+    # Check if the current user is a professor of the class that contains this assignment
+    db_class = db.query(models.Class).filter(models.Class.id == db_assignment.class_id).first()
+    if not db_class or current_user not in db_class.professors:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not a professor of this class"
+        )
+    
+    # Update only the fields that are provided
+    update_data = assignment_update.dict(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(db_assignment, field, value)
+    
+    # Update the updated_at timestamp
+    db_assignment.updated_at = datetime.utcnow()
+    
+    try:
+        db.commit()
+        db.refresh(db_assignment)
+        
+        # Return the updated assignment
+        return {
+            "id": db_assignment.id,
+            "name": db_assignment.name,
+            "description": db_assignment.description,
+            "class_id": db_assignment.class_id,
+            "created_at": db_assignment.created_at,
+            "updated_at": db_assignment.updated_at
+        }
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error updating assignment: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update assignment"
+        )
+
+@app.delete("/assignments/{assignment_id}")
+async def delete_assignment(
+    assignment_id: int,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(database.get_db)
+):
+    """Delete an assignment (professor only)"""
+    if not current_user.is_professor:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only professors can delete assignments"
+        )
+    
+    # Find the assignment
+    db_assignment = db.query(models.Assignment).filter(models.Assignment.id == assignment_id).first()
+    if not db_assignment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Assignment not found"
+        )
+    
+    # Check if the current user is a professor of the class that contains this assignment
+    db_class = db.query(models.Class).filter(models.Class.id == db_assignment.class_id).first()
+    if not db_class or current_user not in db_class.professors:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not a professor of this class"
+        )
+    
+    # Check if there are any submissions for this assignment
+    submission_count = db.query(models.Submission).filter(
+        models.Submission.assignment_id == assignment_id
+    ).count()
+    
+    if submission_count > 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot delete assignment with {submission_count} existing submission(s). Please delete all submissions first."
+        )
+    
+    try:
+        db.delete(db_assignment)
+        db.commit()
+        return {"message": "Assignment deleted successfully"}
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error deleting assignment: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete assignment"
+        )
+
+# =========================
+# Submission Endpoints
+# =========================
+
