@@ -788,6 +788,51 @@ async def get_submission(submission_id: int, db: Session = Depends(database.get_
         "updated_at": submission.updated_at
     }
 
+@app.post("/submissions/{submission_id}/professor-grade", response_model=schemas.ProfessorGradeResponse)
+async def set_professor_grade(
+    submission_id: int,
+    grade_data: schemas.ProfessorGradeRequest,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(database.get_db)
+):
+    """Set professor grade and feedback for a submission"""
+    # Check if user is a professor
+    if not current_user.is_professor:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only professors can set grades"
+        )
+    
+    # Find the submission
+    submission = db.query(models.Submission).filter(models.Submission.id == submission_id).first()
+    if not submission:
+        raise HTTPException(status_code=404, detail="Submission not found")
+    
+    # Update the submission with professor grade and feedback
+    submission.professor_grade = grade_data.grade
+    submission.professor_feedback = grade_data.feedback
+    submission.final_grade = grade_data.grade  # Professor grade becomes the final grade
+    submission.updated_at = datetime.utcnow()
+    
+    try:
+        db.commit()
+        db.refresh(submission)
+        
+        return {
+            "submission_id": submission.id,
+            "professor_grade": submission.professor_grade,
+            "professor_feedback": submission.professor_feedback,
+            "final_grade": submission.final_grade,
+            "message": "Professor grade set successfully"
+        }
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error setting professor grade: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to set professor grade"
+        )
+
 @app.get("/grading/sample-prompt")
 async def get_sample_grading_prompt():
     """Return the sample grading prompt that professors can use as a reference"""

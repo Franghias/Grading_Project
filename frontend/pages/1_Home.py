@@ -311,6 +311,8 @@ if selected_class['assignments']:
                             # Professor Feedback
                             st.markdown("### 👨‍🏫 Professor Feedback")
                             if submission['professor_feedback']:
+                                # Convert newlines to HTML br tags to preserve formatting
+                                formatted_feedback = submission['professor_feedback'].replace('\n', '<br>')
                                 st.markdown(f"""
                                     <div style="
                                         background-color: #f0fdf4;
@@ -319,7 +321,7 @@ if selected_class['assignments']:
                                         border: 1px solid #bbf7d0;
                                         margin-bottom: 1rem;
                                     ">
-                                        {submission['professor_feedback']}
+                                        {formatted_feedback}
                                     </div>
                                 """, unsafe_allow_html=True)
                             else:
@@ -480,6 +482,8 @@ if selected_class['assignments']:
                                     """, unsafe_allow_html=True)
                                 with col2:
                                     st.markdown("### 👨‍🏫 Professor Feedback")
+                                    # Convert newlines to HTML br tags to preserve formatting
+                                    formatted_feedback = result['professor_feedback'].replace('\n', '<br>')
                                     st.markdown(f"""
                                         <div style="
                                             background-color: #f0fdf4;
@@ -488,7 +492,7 @@ if selected_class['assignments']:
                                             border: 1px solid #bbf7d0;
                                             margin-bottom: 1rem;
                                         ">
-                                            {result['professor_feedback']}
+                                            {formatted_feedback}
                                         </div>
                                     """, unsafe_allow_html=True)
                                 st.code(result['code'], language='python')
@@ -1154,6 +1158,8 @@ def show_submit_code():
                                 # Professor Feedback
                                 if result['professor_feedback']:
                                     st.markdown("### 👨‍🏫 Professor Feedback")
+                                    # Convert newlines to HTML br tags to preserve formatting
+                                    formatted_feedback = result['professor_feedback'].replace('\n', '<br>')
                                     st.markdown(f"""
                                         <div style="
                                             background-color: #f0fdf4;
@@ -1162,7 +1168,7 @@ def show_submit_code():
                                             border: 1px solid #bbf7d0;
                                             margin-bottom: 1rem;
                                         ">
-                                            {result['professor_feedback']}
+                                            {formatted_feedback}
                                         </div>
                                     """, unsafe_allow_html=True)
                                 else:

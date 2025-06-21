@@ -188,7 +188,7 @@ st.subheader("Edit and Save New Prompt")
 new_prompt = st.text_area(
     "Enter your new grading prompt here:",
     value=current_prompt,
-    height=300,
+    height=400,
     help="You can use {code} as a placeholder for the student's code."
 )
 if st.button("Save New Prompt"):

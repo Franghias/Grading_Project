@@ -26,7 +26,7 @@ def start_application():
     
     # Wait for database to be ready
     print("Waiting for database to be ready...")
-    time.sleep(3)
+    time.sleep(2)
     
     # 2. Start Backend Server
     print("\n2. Starting backend server...")
@@ -38,7 +38,7 @@ def start_application():
     
     # Wait for backend to start
     print("Waiting for backend server to start...")
-    time.sleep(3)
+    time.sleep(4)
     
     # 3. Start Frontend
     print("\n3. Starting frontend...")

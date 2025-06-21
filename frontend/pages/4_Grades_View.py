@@ -338,7 +338,7 @@ if st.session_state.user.get('is_professor'):
                         professor_feedback = st.text_area(
                             "Feedback (optional)",
                             value=submission['professor_feedback'] if submission['professor_feedback'] else "",
-                            height=100,
+                            height=150,
                             key=f"feedback_{submission['id']}"
                         )
                         submit_grade = st.form_submit_button("Set Grade")
@@ -366,7 +366,9 @@ if st.session_state.user.get('is_professor'):
                 with col2:
                     if submission['professor_feedback']:
                         st.markdown("### 👨‍🏫 Professor Feedback")
-                        st.markdown(f"<div style='background-color: #f0fdf4; padding: 1rem; border-radius: 0.5rem; border: 1px solid #bbf7d0;'>{submission['professor_feedback']}</div>", unsafe_allow_html=True)
+                        # Convert newlines to HTML br tags to preserve formatting
+                        formatted_feedback = submission['professor_feedback'].replace('\n', '<br>')
+                        st.markdown(f"<div style='background-color: #f0fdf4; padding: 1rem; border-radius: 0.5rem; border: 1px solid #bbf7d0;'>{formatted_feedback}</div>", unsafe_allow_html=True)
                 st.markdown("### Submitted Code")
                 st.code(submission['code'], language="python")
                 st.markdown("---")

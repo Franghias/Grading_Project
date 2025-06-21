@@ -224,7 +224,7 @@ def grade_code(code: str, description: str = None) -> tuple[float, str]:
                 {"role": "system", "content": "You are a Computer Science Professor Assistant grading Python code. You must respond in valid JSON format only."},
                 {"role": "user", "content": prompt}
             ],
-            "temperature": 0.7,
+            "temperature": 0.3,
             "max_tokens": 500,
             "stream": False,
             "response_format": { "type": "json_object" }  # Force JSON response
@@ -342,30 +342,37 @@ def grade_code_with_prompt(code: str, prompt: str) -> tuple[float, str]:
             },
             timeout=(10, 30)
         )
+
         logger.info(f"Response status: {response.status_code}")
         if response.status_code != 200:
             error_msg = f"API Error Response: {response.text}"
             logger.error(error_msg)
             return 0.0, f"Error: API returned status {response.status_code}. Please check the logs for details."
+        
+        # Try to parse the response
         response.raise_for_status()
         result = response.json()
+
+        # Format the feedback in a structured way
         ai_response = result.get("choices", [{}])[0].get("message", {}).get("content", "{}")
         feedback_data = extract_json_from_text(ai_response)
+        
         grade = float(feedback_data.get("grade", 0))
         feedback = feedback_data.get("feedback", {})
-        # Defensive conversion: ensure all are lists
-        for key in ["bugs", "improvements", "best_practices"]:
-            val = feedback.get(key)
-            if not isinstance(val, list):
-                if val is None:
-                    feedback[key] = []
-                elif isinstance(val, str):
-                    feedback[key] = [val] if val.strip() else []
-                else:
-                    feedback[key] = list(val) if hasattr(val, '__iter__') else [val]
+
+        # Robustly handle feedback fields
+        feedback["bugs"] = safe_list(feedback.get("bugs"), ["No bugs identified"])
+        feedback["improvements"] = safe_list(feedback.get("improvements"), ["No improvements suggested"])
+        feedback["best_practices"] = safe_list(feedback.get("best_practices"), ["No best practices noted"])
         formatted_feedback = format_feedback(feedback)
+        
+        logger.info("Successfully processed AI response")
+
+        formatted_feedback = format_feedback(feedback)
+        
         logger.info("Successfully processed AI response (custom prompt)")
         return grade, formatted_feedback.strip()
+    
     except requests.exceptions.ConnectionError as e:
         logger.error(f"Connection error: {str(e)}")
         return 0.0, f"Error: Could not connect to Deepseek API. Please check your internet connection and API endpoint."
@@ -379,4 +386,3 @@ def grade_code_with_prompt(code: str, prompt: str) -> tuple[float, str]:
         logger.error(f"Unexpected error: {str(e)}")
         formatted_feedback = format_feedback({}, error_msg="Response parsing failed")
         return 0.0, formatted_feedback.strip()
-
