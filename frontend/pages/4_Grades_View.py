@@ -11,6 +11,10 @@ import os
 from dotenv import load_dotenv
 from datetime import datetime
 from collections import defaultdict
+import numpy as np
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
 
 # =========================
 # Environment and API Setup
@@ -201,58 +205,183 @@ if not student_classes:
     st.stop()
 
 # =========================
-# Student View: Class and Submission Display
+# Add a toggle at the top to switch between Grades and My Statistics
 # =========================
-
-# Dropdown to select a class
-selected_class = st.selectbox(
-    "Select a class to view your submissions:",
-    options=student_classes,
-    format_func=lambda c: f"{c['name']} ({c['code']})"
+view_option = st.radio(
+    "Select View",
+    ("Assignments and Submissions", "My Statistics"),
+    horizontal=True,
+    index=0
 )
 
-def show_submissions_for_class(selected_class, submissions):
-    """
-    Display all submissions for the selected class, grouped by assignment.
-    Shows grades, feedback, and code for each submission.
-    """
-    assignments = selected_class.get('assignments', [])
-    assignment_id_to_info = {a['id']: a for a in assignments}
-    class_submissions = [s for s in submissions if s['assignment_id'] in assignment_id_to_info]
-    if not class_submissions:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.markdown("### No submissions for this class yet.")
-        st.markdown('</div>', unsafe_allow_html=True)
-        return
-    # Group by assignment
-    for assignment in assignments:
-        st.markdown(f"#### {assignment['name']}")
-        assignment_subs = [s for s in class_submissions if s['assignment_id'] == assignment['id']]
-        if not assignment_subs:
-            st.info("No submissions for this assignment yet.")
-            continue
-        # Sort submissions by created_at ascending (oldest first, latest at the top)
-        assignment_subs_sorted = sorted(assignment_subs, key=lambda x: x['created_at'])
-        for i, sub in enumerate(assignment_subs_sorted, 1):
-            col1, col2 = st.columns(2)
+if view_option == "Assignments and Submissions":
+    # =========================
+    # Student View: Class and Submission Display
+    # =========================
+    selected_class = st.selectbox(
+        "Select a class to view your submissions:",
+        options=student_classes,
+        format_func=lambda c: f"{c['name']} ({c['code']})"
+    )
+    def show_submissions_for_class(selected_class, submissions):
+        assignments = selected_class.get('assignments', [])
+        assignment_id_to_info = {a['id']: a for a in assignments}
+        class_submissions = [s for s in submissions if s['assignment_id'] in assignment_id_to_info]
+        if not class_submissions:
+            st.markdown('<div class="card">', unsafe_allow_html=True)
+            st.markdown("### No submissions for this class yet.")
+            st.markdown('</div>', unsafe_allow_html=True)
+            return
+        for assignment in assignments:
+            st.markdown(f"#### {assignment['name']}")
+            assignment_subs = [s for s in class_submissions if s['assignment_id'] == assignment['id']]
+            if not assignment_subs:
+                st.info("No submissions for this assignment yet.")
+                continue
+            assignment_subs_sorted = sorted(assignment_subs, key=lambda x: x['created_at'])
+            for i, sub in enumerate(assignment_subs_sorted, 1):
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.markdown(f"**Submission {i}**")
+                    prof_grade = sub.get('professor_grade')
+                    if prof_grade is not None:
+                        st.markdown(f"**Final Grade:** {prof_grade}")
+                    else:
+                        st.markdown("**Final Grade:** wait for professor feedback")
+                    submitted_at = sub.get('created_at', '')
+                    st.markdown(f"**Submitted at:** {submitted_at[:19].replace('T', ' ')}")
+                with col2:
+                    st.markdown(f"**Professor Feedback:** {sub.get('professor_feedback', 'N/A')}")
+                    st.markdown(f"**AI Feedback:** {sub.get('ai_feedback', 'N/A')}")
+                st.markdown("**Submitted Code:**")
+                st.code(sub.get('code', ''), language="python")
+                st.markdown("---")
+    default_view = show_submissions_for_class(selected_class, submissions)
+else:
+    # =========================
+    # Student Statistics Section (moved from Student View)
+    # =========================
+    if not submissions:
+        st.info("No submissions found yet.")
+    else:
+        data = []
+        for sub in submissions:
+            grade = sub.get('final_grade') or sub.get('professor_grade') or sub.get('ai_grade')
+            if grade is not None:
+                data.append({
+                    'assignment_id': sub['assignment_id'],
+                    'class_id': sub['class_id'],
+                    'grade': grade,
+                    'ai_grade': sub.get('ai_grade'),
+                    'professor_grade': sub.get('professor_grade'),
+                    'final_grade': sub.get('final_grade'),
+                    'created_at': sub['created_at'],
+                    'assignment_name': sub['assignment']['name'] if sub.get('assignment') else 'Unknown'
+                })
+        if not data:
+            st.info("No graded submissions found yet.")
+        else:
+            df = pd.DataFrame(data)
+            df['created_at'] = pd.to_datetime(df['created_at'])
+            def get_grade_letter(grade):
+                if grade >= 90: return 'A'
+                elif grade >= 80: return 'B'
+                elif grade >= 70: return 'C'
+                elif grade >= 60: return 'D'
+                else: return 'F'
+            df['grade_letter'] = df['grade'].apply(get_grade_letter)
+            st.markdown("## 📊 My Statistics Overview")
+            col1, col2, col3 = st.columns(3)
             with col1:
-                st.markdown(f"**Submission {i}**")
-                prof_grade = sub.get('professor_grade')
-                if prof_grade is not None:
-                    st.markdown(f"**Final Grade:** {prof_grade}")
-                else:
-                    st.markdown("**Final Grade:** wait for professor feedback")
-                submitted_at = sub.get('created_at', '')
-                st.markdown(f"**Submitted at:** {submitted_at[:19].replace('T', ' ')}")
+                st.metric("Average Grade", f"{df['grade'].mean():.1f}%")
             with col2:
-                st.markdown(f"**Professor Feedback:** {sub.get('professor_feedback', 'N/A')}")
-                st.markdown(f"**AI Feedback:** {sub.get('ai_feedback', 'N/A')}")
-            st.markdown("**Submitted Code:**")
-            st.code(sub.get('code', ''), language="python")
-            st.markdown("---")
-
-# Show all submissions for assignments in the selected class
-default_view = show_submissions_for_class(selected_class, submissions)
+                st.metric("Total Submissions", f"{len(df)}")
+            with col3:
+                st.metric("Assignments Attempted", f"{df['assignment_id'].nunique()}")
+            tab1, tab2, tab3 = st.tabs(["📊 Grade Distribution", "📈 Assignment Analysis", "⏰ Time Trends"])
+            with tab1:
+                st.markdown("### 📊 Grade Distribution")
+                col1, col2 = st.columns(2)
+                with col1:
+                    fig_hist = px.histogram(
+                        df, x='grade', nbins=20,
+                        title="Grade Distribution",
+                        labels={'grade': 'Grade (%)', 'count': 'Number of Submissions'},
+                        color_discrete_sequence=['#4a9a9b']
+                    )
+                    fig_hist.update_layout(
+                        showlegend=False,
+                        plot_bgcolor='rgba(0,0,0,0)',
+                        paper_bgcolor='rgba(0,0,0,0)'
+                    )
+                    st.plotly_chart(fig_hist, use_container_width=True)
+                with col2:
+                    grade_counts = df['grade_letter'].value_counts()
+                    fig_pie = px.pie(
+                        values=grade_counts.values,
+                        names=grade_counts.index,
+                        title="Grade Letter Distribution",
+                        color_discrete_sequence=px.colors.qualitative.Set3
+                    )
+                    fig_pie.update_layout(
+                        plot_bgcolor='rgba(0,0,0,0)',
+                        paper_bgcolor='rgba(0,0,0,0)'
+                    )
+                    st.plotly_chart(fig_pie, use_container_width=True)
+            with tab2:
+                st.markdown("### 📈 Assignment Performance")
+                assignment_stats = df.groupby('assignment_name').agg({
+                    'grade': ['mean', 'std', 'count']
+                }).round(2)
+                assignment_stats.columns = ['Average Grade', 'Std Dev', 'Submissions']
+                assignment_stats = assignment_stats.reset_index()
+                fig_assignment = px.bar(
+                    assignment_stats,
+                    x='assignment_name',
+                    y='Average Grade',
+                    title="Average Grade by Assignment",
+                    labels={'assignment_name': 'Assignment', 'Average Grade': 'Average Grade (%)'},
+                    color='Average Grade',
+                    color_continuous_scale='RdYlGn'
+                )
+                fig_assignment.update_layout(
+                    xaxis_tickangle=-45,
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    paper_bgcolor='rgba(0,0,0,0)'
+                )
+                st.plotly_chart(fig_assignment, use_container_width=True)
+                st.markdown("### 📋 Assignment Statistics")
+                st.dataframe(assignment_stats, use_container_width=True)
+            with tab3:
+                st.markdown("### ⏰ Time-Based Trends")
+                df['date'] = df['created_at'].dt.date
+                daily_submissions = df.groupby('date').size().reset_index()
+                daily_submissions.columns = ['Date', 'Submissions']
+                fig_trend = px.line(
+                    daily_submissions,
+                    x='Date',
+                    y='Submissions',
+                    title="Daily Submission Trends",
+                    markers=True
+                )
+                fig_trend.update_layout(
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    paper_bgcolor='rgba(0,0,0,0)'
+                )
+                st.plotly_chart(fig_trend, use_container_width=True)
+                grade_trends = df.groupby('date')['grade'].mean().reset_index()
+                fig_grade_trend = px.line(
+                    grade_trends,
+                    x='date',
+                    y='grade',
+                    title="Average Grade Trends Over Time",
+                    markers=True
+                )
+                fig_grade_trend.update_layout(
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    paper_bgcolor='rgba(0,0,0,0)'
+                )
+                st.plotly_chart(fig_grade_trend, use_container_width=True)
 
 # =========================
 # Professor Grading Section (if professor)

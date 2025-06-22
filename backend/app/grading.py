@@ -227,7 +227,7 @@ def grade_code(code: str, description: str = None) -> tuple[float, str]:
             "temperature": 0.3,
             "max_tokens": 500,
             "stream": False,
-            "response_format": { "type": "json_object" }  # Force JSON response
+            # "response_format": { "type": "json_object" }  # Force JSON response
         }
         # logger.info(f"Request payload: {json.dumps(request_payload, indent=2)}")
         
@@ -324,10 +324,10 @@ def grade_code_with_prompt(code: str, prompt: str) -> tuple[float, str]:
                 {"role": "system", "content": "You are a Computer Science Professor Assistant grading Python code. You must respond in valid JSON format only."},
                 {"role": "user", "content": prompt}
             ],
-            "temperature": 0.7,
+            "temperature": 0.3,
             "max_tokens": 500,
             "stream": False,
-            "response_format": { "type": "json_object" }
+            # "response_format": { "type": "json_object" }
         }
         session = create_retry_session()
         response = session.post(
