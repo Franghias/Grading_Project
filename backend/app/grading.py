@@ -128,11 +128,9 @@ def extract_json_from_text(text: str) -> dict:
     except json.JSONDecodeError:
         pass
     # Try to find the largest JSON object in the text
-    # This pattern matches the largest {...} block (non-recursive, works with Python re)
     json_pattern = r'\{(?:[^{}]|(?:\{[^{}]*\}))*\}'
     matches = list(re.finditer(json_pattern, text, re.DOTALL))
     if matches:
-        # Try the largest match first
         largest = max(matches, key=lambda m: len(m.group()))
         try:
             data = json.loads(largest.group())
@@ -142,7 +140,6 @@ def extract_json_from_text(text: str) -> dict:
             logger.warning(f"Invalid response structure in extracted JSON: {error_msg}")
         except json.JSONDecodeError:
             logger.warning("Failed to parse extracted JSON structure")
-    # Fallback to previous logic: try any {...} block
     fallback_pattern = r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}'
     match = re.search(fallback_pattern, text)
     if match:
@@ -159,9 +156,9 @@ def extract_json_from_text(text: str) -> dict:
     return {
         "grade": 0,
         "feedback": {
-            "code_quality": "Could not parse AI response",
+            "code_quality": "Could not parse AI response. The response was missing the required 'grade' field. Please ensure your prompt instructs the AI to return a JSON object with a top-level 'grade' field (number) and a 'feedback' object as shown in the sample.",
             "bugs": ["Response parsing failed"],
-            "improvements": ["Please try again"],
+            "improvements": ["Check your prompt and make sure the AI returns the required JSON structure."],
             "best_practices": ["Response format error"]
         }
     }

@@ -115,6 +115,21 @@ if not st.session_state.user.get('is_professor'):
     st.error("This page is for professors only")
     st.stop()
 
+# =========================
+# Top Navigation Bar (moved from sidebar)
+# =========================
+
+if st.session_state.user.get('is_professor'):
+    with st.sidebar:
+        st.markdown("### Quick Navigation")
+        st.page_link('pages/2_Professor_View.py', label='Professor View', icon='👨‍🏫')
+        st.page_link('pages/5_Prompt_Management.py', label='Prompt Management', icon='📝')
+        st.page_link('pages/7_Class_Statistics.py', label='Class Statistics', icon='📈')
+        st.page_link('pages/6_Assignment_Management.py', label='Assignment Management', icon='🗂️')
+        st.page_link('pages/create_class.py', label='Create Class', icon='➕')
+        st.page_link('login.py', label='Logout', icon='🚪')
+        st.markdown("---")
+
 # Ensure custom_grading_prompt is initialized
 if 'custom_grading_prompt' not in st.session_state:
     st.session_state.custom_grading_prompt = ''
@@ -166,8 +181,12 @@ if selected_class:
         response = requests.get(f"{API_URL}/classes/{selected_class['id']}/prompt", headers={"Authorization": f"Bearer {st.session_state.token}"})
         if response.status_code == 200:
             class_prompt = response.json()
-            st.code(class_prompt['prompt'], language="text")
-            st.write(f"**Title:** {class_prompt['title']}")
+            if class_prompt and 'prompt' in class_prompt and 'title' in class_prompt:
+                st.code(class_prompt['prompt'], language="text")
+                st.write(f"**Title:** {class_prompt['title']}")
+            else:
+                st.info("No prompt set for this class yet.")
+                class_prompt = None
         else:
             st.info("No prompt set for this class yet.")
             class_prompt = None
@@ -202,24 +221,20 @@ if selected_class:
 
     st.markdown("---")
     st.subheader("Edit Class Prompt")
-    if class_prompt:
-        with st.form(key="edit_class_prompt_form"):
-            new_title = st.text_input("Prompt Title", value=class_prompt['title'] or "")
-            new_prompt = st.text_area("Prompt Text", value=class_prompt['prompt'], height=400)
-            submit_edit = st.form_submit_button("Update Prompt")
-            if submit_edit:
-                edit_response = requests.put(
-                    f"{API_URL}/classes/{selected_class['id']}/prompt",
-                    json={"title": new_title, "prompt": new_prompt},
-                    headers={"Authorization": f"Bearer {st.session_state.token}"}
-                )
-                if edit_response.status_code == 200:
-                    st.success("Prompt updated!")
-                else:
-                    st.error(f"Failed to update prompt: {edit_response.text}")
-    else:
-        st.info("No prompt to edit for this class.")
+    st.markdown('<p>Please go to Prompt Management to edit the prompt</p>', unsafe_allow_html=True)
+    # Add button to go to Prompt Management
+    if st.button("Go to Prompt Management"):
+        st.switch_page("pages/5_Prompt_Management.py")
+else:
+    st.info("No prompt to edit for this class.")
 
+
+# =========================
+# Grading & Feedback Section (at the end of the page)
+# =========================
+st.markdown("---")
+st.header("📝 Grade and Give Feedback on Student Homework")
+if selected_class:
     # Fetch assignments for the selected class
     try:
         response = requests.get(
@@ -230,232 +245,91 @@ if selected_class:
         assignments = response.json()
     except requests.RequestException as e:
         st.error(f"Error fetching assignments: {str(e)}")
-        st.stop()
+        assignments = []
 
     if not assignments:
-        st.warning("No assignments found for this class")
-        
-        # Add option to create default assignments
-        if st.button("Create Default Assignments"):
-            default_assignments = [
-                "Hello World",
-                "Print",
-                "Variable Definition and How to Use It",
-                "If Else Statement",
-                "For Loop"
-            ]
-            
-            for assignment_name in default_assignments:
-                try:
-                    response = requests.post(
-                        f"{API_URL}/classes/{selected_class['id']}/assignments/",
-                        headers={"Authorization": f"Bearer {st.session_state.token}"},
-                        json={"name": assignment_name, "class_id": selected_class['id']}
-                    )
-                    response.raise_for_status()
-                except requests.RequestException as e:
-                    st.error(f"Error creating assignment '{assignment_name}': {str(e)}")
-                    continue
-            
-            st.success("Default assignments created successfully!")
-            st.rerun()
+        st.info("No assignments found for this class.")
     else:
-        # Assignment selection dropdown
-        selected_assignment = st.selectbox(
-            "Select an assignment",
-            options=assignments,
-            format_func=lambda x: x['name']
-        )
-        st.markdown("<div style='text-align:center; margin-top: 1rem;'>", unsafe_allow_html=True)
-        if st.button("Manage Assignments"):
-            st.switch_page("pages/6_Assignment_Management.py")
-        st.markdown("</div>", unsafe_allow_html=True)
-
-        if selected_assignment:
-            # Fetch submissions for the selected assignment
+        for assignment in assignments:
+            st.markdown(f"### {assignment['name']}")
+            # Fetch submissions for this assignment
             try:
                 response = requests.get(
-                    f"{API_URL}/classes/{selected_class['id']}/assignments/{selected_assignment['id']}/submissions",
+                    f"{API_URL}/classes/{selected_class['id']}/assignments/{assignment['id']}/submissions",
                     headers={"Authorization": f"Bearer {st.session_state.token}"}
                 )
                 response.raise_for_status()
                 submissions = response.json()
             except requests.RequestException as e:
                 st.error(f"Error fetching submissions: {str(e)}")
-                st.stop()
-
+                continue
             if not submissions:
-                st.info("No submissions found for this assignment")
-            else:
-                st.subheader(f"Submissions for {selected_assignment['name']}")
-                # Grouped by user
-                for user_data in submissions:
-                    # Initialize session state for each student
-                    student_key = f"show_details_{user_data['user_id']}"
-                    if student_key not in st.session_state:
-                        st.session_state[student_key] = False
-                    
-                    # Student header with toggle button
-                    col1, col2 = st.columns([3, 1])
-                    with col1:
-                        st.markdown(f"**👨‍🎓 {user_data['username']} ({user_data['user_id']})**")
-                    with col2:
-                        button_text = "🔽 Hide Details" if st.session_state[student_key] else "▶️ Show Details"
-                        if st.button(button_text, key=f"btn_{user_data['user_id']}"):
-                            st.session_state[student_key] = not st.session_state[student_key]
-                            st.rerun()
-                    
-                    # Show detailed student information when expanded
-                    if st.session_state[student_key]:
-                        st.markdown(f"""
-                        <div style="background-color: #f8fafc; padding: 1rem; border-radius: 0.5rem; border: 1px solid #e2e8f0; margin-bottom: 1rem;">
-                            <h4 style="margin: 0 0 0.5rem 0; color: #1e293b;">👨‍🎓 Student Information</h4>
-                            <p style="margin: 0.25rem 0; color: #475569;"><strong>Name:</strong> {user_data['username']}</p>
-                            <p style="margin: 0.25rem 0; color: #475569;"><strong>Student ID:</strong> {user_data['user_id']}</p>
-                            <p style="margin: 0.25rem 0; color: #475569;"><strong>Total Submissions:</strong> {len(user_data['submissions'])}</p>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        
-                        user_subs = sorted(user_data['submissions'], key=lambda x: x['created_at'], reverse=True)
-                        total_submissions = len(user_subs)
-                        
-                        for i, submission in enumerate(user_subs):
-                            # Calculate submission number (latest = highest number)
-                            submission_number = total_submissions - i
-                            
-                            # Format submission date and time
-                            submission_date = submission['created_at'][:10]  # YYYY-MM-DD
-                            submission_time = submission['created_at'][11:19]  # HH:MM:SS
-                            submission_datetime = f"{submission_date} at {submission_time}"
-                            
-                            # Create empty containers for dynamic content
-                            grades_container = st.empty()
-                            feedback_container = st.empty()
-                            grading_form_container = st.empty()
-                            
-                            # Display submission content directly without expander
-                            st.markdown(f"""
-                            <div style="background-color: #fef3c7; padding: 1rem; border-radius: 0.5rem; border: 1px solid #fde68a; margin-bottom: 1rem;">
-                                <h4 style="margin: 0 0 0.5rem 0; color: #92400e;">📝 Submission #{submission_number} - {submission_datetime}</h4>
-                                <p style="margin: 0.25rem 0; color: #92400e;"><strong>Submitted:</strong> {submission_datetime}</p>
-                                <p style="margin: 0.25rem 0; color: #92400e;"><strong>Submission ID:</strong> {submission['id']}</p>
-                            </div>
-                            """, unsafe_allow_html=True)
-                            
-                            # Function to update grades display
-                            def update_grades_display():
-                                with grades_container.container():
-                                    col1, col2, col3 = st.columns(3)
-                                    with col1:
-                                        if submission['ai_grade'] is not None:
-                                            ai_grade_color = "green" if submission['ai_grade'] >= 70 else "orange" if submission['ai_grade'] >= 50 else "red"
-                                            st.markdown(f"""
-                                                <div style="background-color: #f0f9ff; padding: 1rem; border-radius: 0.5rem; text-align: center; border: 1px solid #bae6fd;">
-                                                    <h4 style="margin: 0 0 0.5rem 0; color: #0369a1;">🤖 AI Grade</h4>
-                                                    <h2 style="margin: 0; color: {ai_grade_color}; font-size: 1.5rem;">{submission['ai_grade']}</h2>
-                                                </div>
-                                            """, unsafe_allow_html=True)
-                                        else:
-                                            st.markdown("**🤖 AI Grade:** Not available")
-                                    with col2:
-                                        if submission['professor_grade'] is not None:
-                                            final_grade_color = "green" if submission['professor_grade'] >= 70 else "orange" if submission['professor_grade'] >= 50 else "red"
-                                            st.markdown(f"""
-                                                <div style="background-color: #fef7ff; padding: 1rem; border-radius: 0.5rem; text-align: center; border: 2px solid #c084fc;">
-                                                    <h4 style="margin: 0 0 0.5rem 0; color: #7c3aed;">📊 Final Grade</h4>
-                                                    <h2 style="margin: 0; color: {final_grade_color}; font-size: 1.5rem;">{submission['professor_grade']}</h2>
-                                                </div>
-                                            """, unsafe_allow_html=True)
-                                        else:
-                                            st.markdown("**📊 Final Grade:** Not graded")
-                                    with col3:
-                                        # Only show Final Grade if professor has graded
-                                        if submission['professor_grade'] is not None:
-                                            final_grade_color = "green" if submission['professor_grade'] >= 70 else "orange" if submission['professor_grade'] >= 50 else "red"
-                                            st.markdown(f"""
-                                                <div style="background-color: #fef7ff; padding: 1rem; border-radius: 0.5rem; text-align: center; border: 2px solid #c084fc;">
-                                                    <h4 style="margin: 0 0 0.5rem 0; color: #7c3aed;">📊 Final Grade</h4>
-                                                    <h2 style="margin: 0; color: {final_grade_color}; font-size: 1.5rem;">{submission['professor_grade']}</h2>
-                                                </div>
-                                            """, unsafe_allow_html=True)
-                                        # Do not show final grade if not graded by professor
-                            
-                            # Function to update feedback display
-                            def update_feedback_display():
-                                with feedback_container.container():
-                                    col1, col2 = st.columns(2)
-                                    with col1:
-                                        if submission['ai_feedback']:
-                                            st.markdown("### 🤖 AI Feedback")
-                                            st.markdown(f"<div style='background-color: #f8fafc; padding: 1rem; border-radius: 0.5rem; border: 1px solid #e2e8f0;'>{submission['ai_feedback']}</div>", unsafe_allow_html=True)
-                                    with col2:
-                                        if submission['professor_feedback']:
-                                            st.markdown("### 👨‍🏫 Professor Feedback")
-                                            # Convert newlines to HTML br tags to preserve formatting
-                                            formatted_feedback = submission['professor_feedback'].replace('\n', '<br>')
-                                            st.markdown(f"<div style='background-color: #f0fdf4; padding: 1rem; border-radius: 0.5rem; border: 1px solid #bbf7d0;'>{formatted_feedback}</div>", unsafe_allow_html=True)
-                            
-                            # Function to update grading form
-                            def update_grading_form():
-                                with grading_form_container.container():
-                                    st.markdown("### Submitted Code")
-                                    st.code(submission['code'], language="python")
-                                    st.markdown("---")
-                                    # Add custom grading button
-                                    if st.button(f"Grade with Custom Prompt", key=f"custom_grade_{submission['id']}"):
-                                        if st.session_state.custom_grading_prompt.strip() == '':
-                                            st.warning('You must set your custom grading prompt before using custom grading!')
-                                        else:
-                                            try:
-                                                response = requests.post(
-                                                    f"{API_URL}/submissions/grade-with-custom-prompt?submission_id={submission['id']}",
-                                                    headers={"Authorization": f"Bearer {st.session_state.token}"}
-                                                )
-                                                response.raise_for_status()
-                                                result = response.json()
-                                                st.success(f"Custom grade: {result['grade']}, Feedback: {result['feedback']}")
-                                                # Update only the grades and feedback sections
-                                                update_grades_display()
-                                                update_feedback_display()
-                                                st.rerun()  # Use rerun instead of recursive call
-                                            except requests.RequestException as e:
-                                                st.error(f"Error grading with custom prompt: {str(e)}")
-                                    # Professor grading form (only if not already graded)
-                                    if submission['professor_grade'] is None:
-                                        with st.form(f"professor_grade_form_{submission['id']}"):
-                                            st.markdown("#### 👨‍🏫 Set Professor Grade (Final Score)")
-                                            prof_grade = st.number_input("Grade (0-100)", min_value=0.0, max_value=100.0, step=1.0, key=f"grade_input_{submission['id']}")
-                                            prof_feedback = st.text_area("Feedback (optional)", key=f"feedback_input_{submission['id']}", height=150)
-                                            submit_prof_grade = st.form_submit_button("Submit Final Grade")
-                                            if submit_prof_grade:
-                                                try:
-                                                    response = requests.post(
-                                                        f"{API_URL}/submissions/{submission['id']}/professor-grade",
-                                                        headers={"Authorization": f"Bearer {st.session_state.token}"},
-                                                        json={"grade": prof_grade, "feedback": prof_feedback}
-                                                    )
-                                                    response.raise_for_status()
-                                                    result = response.json()
-                                                    st.success(f"Professor grade set: {result['professor_grade']} (Final Grade)")
-                                                    st.rerun()  # Use rerun instead of recursive call
-                                                except requests.RequestException as e:
-                                                    st.error(f"Error setting professor grade: {str(e)}")
-                            
-                            # Initial display
-                            update_grades_display()
-                            update_feedback_display()
-                            update_grading_form()
-                            
-                            # Add separator between submissions
-                            st.markdown("---")
-
-# Sidebar navigation for professors
-if st.session_state.user.get('is_professor'):
-    with st.sidebar:
-        st.title('Professor Menu')
-        st.page_link('pages/2_Professor_View.py', label='Professor View', icon='👨‍🏫')
-        st.page_link('pages/5_Prompt_Management.py', label='Prompt Management', icon='📝')
-        st.page_link('pages/7_Class_Statistics.py', label='Class Statistics', icon='📈')
-        st.page_link('pages/6_Assignment_Management.py', label='Assignment Management', icon='🗂️')
-        st.page_link('pages/create_class.py', label='Create Class', icon='➕')
-        st.page_link('login.py', label='Logout', icon='🚪') 
+                st.info("No student submissions for this assignment yet.")
+                continue
+            for user_data in submissions:
+                student_key = f"show_details_{assignment['id']}_{user_data['user_id']}"
+                if student_key not in st.session_state:
+                    st.session_state[student_key] = False
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    st.markdown(f"**👨‍🎓 {user_data['username']} ({user_data['user_id']})**")
+                with col2:
+                    button_text = "🔽 Hide Details" if st.session_state[student_key] else "▶️ Show Details"
+                    if st.button(button_text, key=f"btn_{assignment['id']}_{user_data['user_id']}"):
+                        st.session_state[student_key] = not st.session_state[student_key]
+                        st.rerun()
+                if st.session_state[student_key]:
+                    user_subs = sorted(user_data['submissions'], key=lambda x: x['created_at'], reverse=True)
+                    latest_sub = user_subs[0] if user_subs else None
+                    st.markdown(f"<div style='background-color: #f8fafc; padding: 1rem; border-radius: 0.5rem; border: 1px solid #e2e8f0; margin-bottom: 1rem;'>", unsafe_allow_html=True)
+                    st.markdown(f"<h4 style='margin: 0 0 0.5rem 0; color: #1e293b;'>👨‍🎓 Student Information</h4>", unsafe_allow_html=True)
+                    st.markdown(f"<p style='margin: 0.25rem 0; color: #475569;'><strong>Name:</strong> {user_data['username']}</p>", unsafe_allow_html=True)
+                    st.markdown(f"<p style='margin: 0.25rem 0; color: #475569;'><strong>Student ID:</strong> {user_data['user_id']}</p>", unsafe_allow_html=True)
+                    st.markdown(f"<p style='margin: 0.25rem 0; color: #475569;'><strong>Total Submissions:</strong> {len(user_subs)}</p>", unsafe_allow_html=True)
+                    st.markdown("</div>", unsafe_allow_html=True)
+                    if latest_sub:
+                        left, right = st.columns(2)
+                        with left:
+                            st.markdown("#### 🤖 AI Grade & Feedback (Latest Submission)")
+                            if latest_sub['ai_grade'] is not None:
+                                st.markdown(f"**AI Grade:** {latest_sub['ai_grade']}")
+                            else:
+                                st.markdown("**AI Grade:** Not available")
+                            if latest_sub['ai_feedback']:
+                                st.markdown(f"**AI Feedback:** {latest_sub['ai_feedback']}")
+                            else:
+                                st.markdown("**AI Feedback:** Not available")
+                            st.markdown("**Submitted Code:**")
+                            st.code(latest_sub['code'], language="python")
+                        with right:
+                            st.markdown("#### 👨‍🏫 Professor Grade & Feedback (Edit)")
+                            with st.form(f"professor_grade_form_{assignment['id']}_{latest_sub['id']}"):
+                                prof_grade = st.number_input(
+                                    "Grade (0-100)",
+                                    min_value=0.0,
+                                    max_value=100.0,
+                                    step=1.0,
+                                    value=float(latest_sub['professor_grade']) if latest_sub['professor_grade'] is not None else 0.0,
+                                    key=f"grade_input_{assignment['id']}_{latest_sub['id']}"
+                                )
+                                prof_feedback = st.text_area(
+                                    "Feedback (optional)",
+                                    value=latest_sub['professor_feedback'] if latest_sub['professor_feedback'] else "",
+                                    key=f"feedback_input_{assignment['id']}_{latest_sub['id']}",
+                                    height=150
+                                )
+                                submit_prof_grade = st.form_submit_button("Submit Grade")
+                                if submit_prof_grade:
+                                    try:
+                                        response = requests.post(
+                                            f"{API_URL}/submissions/{latest_sub['id']}/professor-grade",
+                                            headers={"Authorization": f"Bearer {st.session_state.token}"},
+                                            json={"grade": prof_grade, "feedback": prof_feedback}
+                                        )
+                                        response.raise_for_status()
+                                        result = response.json()
+                                        st.success(f"Professor grade set: {result['professor_grade']} (Final Grade)")
+                                        st.rerun()
+                                    except requests.RequestException as e:
+                                        st.error(f"Error setting professor grade: {str(e)}")
+                    st.markdown("---") 

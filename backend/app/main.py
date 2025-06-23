@@ -4,7 +4,7 @@
 # This file contains the main API endpoints for authentication, class and assignment management, submissions, and grading.
 # It also handles application initialization, CORS, and database setup.
 
-from fastapi import FastAPI, Depends, File, UploadFile, HTTPException, Form, Body, status, Request, Query
+from fastapi import FastAPI, Depends, File, UploadFile, HTTPException, Form, Body, status, Request, Query, Response
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from . import models, schemas, database, grading, crud
@@ -21,6 +21,12 @@ import json
 import logging
 from .utils import get_password_hash, verify_password
 from sqlalchemy.orm import sessionmaker
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import RedirectResponse
+import re
+from pydantic import ValidationError
+from collections import defaultdict, deque
+import time
 
 # =========================
 # Application Initialization
@@ -58,15 +64,61 @@ app = FastAPI(
 )
 print("FastAPI app created")
 
-# Add CORS middleware to allow cross-origin requests from any origin
+# =========================
+# CORS Restriction (Method 1)
+# =========================
+
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],  # Allows all methods
     allow_headers=["*"],  # Allows all headers
 )
-# print("CORS middleware added")
+
+# =========================
+# HTTPS Enforcement (Method 3)
+# =========================
+
+class HTTPSRedirectMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        if os.getenv("FORCE_HTTPS", "0") == "1":
+            if request.url.scheme == "http":
+                url = request.url.replace(scheme="https")
+                return RedirectResponse(url=str(url))
+        return await call_next(request)
+
+app.add_middleware(HTTPSRedirectMiddleware)
+
+# =========================
+# Simple Rate Limiter (10 req/min) for login/signup
+# =========================
+
+RATE_LIMIT = 50
+RATE_PERIOD = 60  # seconds
+rate_limiters = defaultdict(lambda: deque())
+
+def rate_limiter(request: Request):
+    ip = request.client.host
+    now = time.time()
+    dq = rate_limiters[ip]
+    # Remove timestamps older than RATE_PERIOD
+    while dq and now - dq[0] > RATE_PERIOD:
+        dq.popleft()
+    if len(dq) >= RATE_LIMIT:
+        raise HTTPException(status_code=429, detail="Too many requests. Please try again later.")
+    dq.append(now)
+
+# =========================
+# Helper: Hide error details from users (Method 6)
+# =========================
+
+def generic_error_response():
+    return HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail="An internal error occurred. Please try again later."
+    )
 
 # Create database tables if they do not exist
 # print("Attempting to create database tables...")
@@ -122,29 +174,23 @@ async def get_current_user(request: Request, token: str = Depends(oauth2_scheme)
 # =========================
 
 @app.post("/auth/signup", response_model=schemas.User, status_code=status.HTTP_201_CREATED)
-async def signup(user: schemas.UserCreate, db: Session = Depends(database.get_db)):
-    """Register a new user. Checks for duplicate email and user_id."""
-    # logger.debug(f"Creating user with email: {user.email}")
-    # Check if user already exists
-    db_user = db.query(models.User).filter(models.User.email == user.email).first()
-    if db_user:
-        # logger.warning(f"User with email {user.email} already exists")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
-        )
-    
-    # Check if user_id already exists
-    db_user_id = db.query(models.User).filter(models.User.user_id == user.user_id).first()
-    if db_user_id:
-        # logger.warning(f"User with ID {user.user_id} already exists")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User ID already registered"
-        )
-    
-    # Create new user
+async def signup(user: schemas.UserCreate, request: Request, db: Session = Depends(database.get_db)):
+    # Rate limit
+    rate_limiter(request)
+    # Backend input validation (Method 5)
+    if not re.match(r"^[0-9]{8}$", user.user_id):
+        raise HTTPException(status_code=400, detail="User ID must be exactly 8 digits.")
+    if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", user.email):
+        raise HTTPException(status_code=400, detail="Invalid email address.")
+    if len(user.password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters long.")
     try:
+        db_user = db.query(models.User).filter(models.User.email == user.email).first()
+        if db_user:
+            raise HTTPException(status_code=400, detail="Email already registered")
+        db_user_id = db.query(models.User).filter(models.User.user_id == user.user_id).first()
+        if db_user_id:
+            raise HTTPException(status_code=400, detail="User ID already registered")
         hashed_password = get_password_hash(user.password)
         db_user = models.User(
             email=user.email,
@@ -152,60 +198,60 @@ async def signup(user: schemas.UserCreate, db: Session = Depends(database.get_db
             user_id=user.user_id,
             hashed_password=hashed_password,
             is_active=True,
-            is_professor=user.is_professor,  # Set the professor role
+            is_professor=user.is_professor,
             created_at=datetime.utcnow()
         )
-        
         db.add(db_user)
         db.commit()
         db.refresh(db_user)
-        
-        # logger.info(f"Successfully created user with email: {user.email}")
-        # Convert to response model
         return {
             "id": db_user.id,
             "email": db_user.email,
             "name": db_user.name,
             "user_id": db_user.user_id,
             "is_active": db_user.is_active,
-            "is_professor": db_user.is_professor,  # Include in response
+            "is_professor": db_user.is_professor,
             "created_at": db_user.created_at,
             "updated_at": db_user.updated_at
         }
+    except HTTPException as e:
+        raise e
     except Exception as e:
-        # logger.error(f"Error creating user: {str(e)}")
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
-        )
+        logger.error(f"Signup error: {str(e)}")
+        raise generic_error_response()
 
 @app.post("/auth/login", response_model=schemas.Token)
-async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(database.get_db)):
-    """Authenticate a user and return a JWT token if successful."""
-    user = db.query(models.User).filter(models.User.email == form_data.username).first()
-    if not user or not verify_password(form_data.password, user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password. Please try again.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    access_token = create_access_token(data={"sub": user.email})
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "user": {
-            "id": user.id,
-            "email": user.email,
-            "name": user.name,
-            "user_id": user.user_id,
-            "is_active": user.is_active,
-            "is_professor": user.is_professor,
-            "created_at": user.created_at,
-            "updated_at": user.updated_at
+async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(database.get_db)):
+    # Rate limit
+    rate_limiter(request)
+    try:
+        user = db.query(models.User).filter(models.User.email == form_data.username).first()
+        if not user or not verify_password(form_data.password, user.hashed_password):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid email or password. Please try again.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        access_token = create_access_token(data={"sub": user.email})
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "user": {
+                "id": user.id,
+                "email": user.email,
+                "name": user.name,
+                "user_id": user.user_id,
+                "is_active": user.is_active,
+                "is_professor": user.is_professor,
+                "created_at": user.created_at,
+                "updated_at": user.updated_at
+            }
         }
-    }
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        logger.error(f"Login error: {str(e)}")
+        raise generic_error_response()
 
 @app.get("/auth/me", response_model=schemas.User)
 async def read_users_me(current_user: models.User = Depends(get_current_user)):
@@ -653,36 +699,25 @@ async def create_submission(
             detail="No code provided"
         )
     
-    # Grade the code using the AI grading system with the latest class prompt or global prompt
-    try:
-        # Try to get the latest class-specific prompt
-        grading_prompt = db.query(models.GradingPrompt)\
-            .filter(models.GradingPrompt.class_id == int(class_id))\
-            .order_by(models.GradingPrompt.created_at.desc())\
-            .first()
-        if grading_prompt:
+    # Only grade with AI if a class-specific prompt exists
+    grading_prompt = db.query(models.GradingPrompt)\
+        .filter(models.GradingPrompt.class_id == int(class_id))\
+        .order_by(models.GradingPrompt.created_at.desc())\
+        .first()
+    if grading_prompt:
+        try:
             prompt = grading_prompt.prompt
-        else:
-            # Fallback to global prompt
-            global_prompt = db.query(models.GradingPrompt)\
-                .filter(models.GradingPrompt.class_id == None)\
-                .order_by(models.GradingPrompt.created_at.desc())\
-                .first()
-            if global_prompt:
-                prompt = global_prompt.prompt
-            else:
-                sample_prompt = await get_sample_grading_prompt()
-                prompt = sample_prompt["prompt"]
-        # Always replace placeholders before calling the AI
-        prompt = prompt.replace("{description}", db_assignment.description or "No description provided")
-        prompt = prompt.replace("{code}", code)
-        ai_grade, ai_feedback = grading.grade_code_with_prompt(code, prompt)
-    except Exception as e:
-        # logger.error(f"Error grading code: {str(e)}")
-        ai_grade = 0.0
-        ai_feedback = "Error during grading process. Please contact your professor."
+            prompt = prompt.replace("{description}", db_assignment.description or "No description provided")
+            prompt = prompt.replace("{code}", code)
+            ai_grade, ai_feedback = grading.grade_code_with_prompt(code, prompt)
+        except Exception as e:
+            ai_grade = 0.0
+            ai_feedback = "Error during grading process. Please contact your professor."
+    else:
+        ai_grade = None
+        ai_feedback = "AI grading is not available until your professor sets a grading prompt for this class."
     
-    # Create submission with AI grading results
+    # Create submission with (or without) AI grading results
     db_submission = models.Submission(
         user_id=current_user.user_id,
         class_id=int(class_id),
@@ -855,11 +890,14 @@ async def get_custom_grading_prompt(
     return await get_sample_grading_prompt()
 
 @app.post("/prompts/", response_model=schemas.GradingPromptResponse)
-def create_prompt(prompt: schemas.GradingPromptBase, db: Session = Depends(database.get_db)):
+def create_prompt(prompt: schemas.GradingPromptBase, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
+    # Always set created_by to the current user's ID for professor prompt creation/copy
+    # Only set created_by=None if you have a special admin global prompt creation flow (not in this endpoint)
     db_prompt = models.GradingPrompt(
         title=prompt.title,
         prompt=prompt.prompt,
-        class_id=prompt.class_id
+        class_id=prompt.class_id,
+        created_by=current_user.id
     )
     db.add(db_prompt)
     db.commit()
@@ -954,10 +992,14 @@ async def grade_with_custom_prompt(
     }
 
 @app.get("/prompts/", response_model=List[schemas.GradingPromptResponse])
-def get_all_prompts(db: Session = Depends(database.get_db), class_id: Optional[int] = Query(None)):
+def get_all_prompts(db: Session = Depends(database.get_db), class_id: Optional[int] = Query(None), created_by: Optional[int] = Query(None)):
     query = db.query(models.GradingPrompt)
     if class_id is not None:
         query = query.filter(models.GradingPrompt.class_id == class_id)
+    if created_by is not None:
+        query = query.filter(models.GradingPrompt.created_by == created_by)
+    elif created_by is None:
+        query = query.filter(models.GradingPrompt.created_by == None)
     return query.order_by(models.GradingPrompt.created_at.desc()).all()
 
 @app.post("/prompts/", response_model=schemas.GradingPromptResponse)
@@ -1002,6 +1044,18 @@ def edit_class_prompt(class_id: int, prompt: schemas.GradingPromptBase, db: Sess
         raise HTTPException(status_code=404, detail="No prompt set for this class.")
     db_prompt.title = prompt.title
     db_prompt.prompt = prompt.prompt
+    db.commit()
+    db.refresh(db_prompt)
+    return db_prompt
+
+@app.put("/prompts/{prompt_id}", response_model=schemas.GradingPromptResponse)
+def update_prompt(prompt_id: int, prompt: schemas.GradingPromptBase, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
+    db_prompt = db.query(models.GradingPrompt).filter(models.GradingPrompt.id == prompt_id, models.GradingPrompt.created_by == current_user.id).first()
+    if not db_prompt:
+        raise HTTPException(status_code=404, detail="Prompt not found or not owned by user.")
+    db_prompt.title = prompt.title
+    db_prompt.prompt = prompt.prompt
+    db_prompt.class_id = prompt.class_id
     db.commit()
     db.refresh(db_prompt)
     return db_prompt

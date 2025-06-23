@@ -880,24 +880,45 @@ def show_custom_grading_prompt():
         st.write("Sample Grading Prompt:")
         st.code(sample_prompt, language="text")
         st.write("Create Your Custom Grading Prompt:")
+        st.markdown("""
+        <div style='background-color:#fff3cd; color:#856404; border:1px solid #ffeeba; border-radius:0.375rem; padding:1rem; margin-bottom:1rem;'>
+        <strong>Important:</strong> Your prompt <b>must</b> instruct the AI to return a JSON object with a top-level <code>grade</code> field (number) and a <code>feedback</code> object as shown below:
+        </div>
+        """, unsafe_allow_html=True)
+        st.code('''{
+  "grade": 95,
+  "feedback": {
+    "code_quality": "Good use of functions and clear variable names.",
+    "bugs": [],
+    "improvements": ["Add more comments for clarity."],
+    "best_practices": ["Used list comprehensions."]
+  }
+}''', language="json")
+        custom_prompt_title = st.text_input(
+            "Prompt Title:",
+            value="",
+            help="Enter a descriptive title for your grading prompt."
+        )
         custom_prompt = st.text_area(
             "Enter your grading prompt here",
             height=400,
             help="You can use {code} as a placeholder for the student's code."
         )
         if st.button("Save Custom Prompt"):
-            if custom_prompt:
+            if not custom_prompt_title.strip():
+                st.warning("Please enter a title for your prompt.")
+            elif not custom_prompt.strip():
+                st.warning("Please enter your custom grading prompt")
+            else:
                 try:
                     response = requests.post(
-                        f"{API_URL}/grading/custom-prompt",
+                        f"{API_URL}/prompts/",
                         headers=get_auth_header(),
-                        json={"prompt": custom_prompt}
+                        json={"prompt": custom_prompt, "class_id": None, "title": custom_prompt_title}
                     )
                     st.success("Custom grading prompt saved successfully!")
                 except Exception as e:
                     st.error(f"Error saving custom prompt: {str(e)}")
-            else:
-                st.warning("Please enter your custom grading prompt")
     except Exception as e:
         st.error(f"Error: {str(e)}")
 

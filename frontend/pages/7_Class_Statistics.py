@@ -126,6 +126,17 @@ st.markdown('<h1>📊 Class Analytics Dashboard</h1>', unsafe_allow_html=True)
 st.markdown('<p>Comprehensive insights into student performance and class trends</p>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
+# Sidebar navigation for professors
+if st.session_state.user.get('is_professor'):
+    with st.sidebar:
+        st.title('Professor Menu')
+        st.page_link('pages/2_Professor_View.py', label='Professor View', icon='👨‍🏫')
+        st.page_link('pages/5_Prompt_Management.py', label='Prompt Management', icon='📝')
+        st.page_link('pages/7_Class_Statistics.py', label='Class Statistics', icon='📈')
+        st.page_link('pages/6_Assignment_Management.py', label='Assignment Management', icon='🗂️')
+        st.page_link('pages/create_class.py', label='Create Class', icon='➕')
+        st.page_link('login.py', label='Logout', icon='🚪') 
+
 # =========================
 # Helper Functions
 # =========================
@@ -459,15 +470,3 @@ if selected_class:
                 file_name=f"{selected_class['name']}_statistics_summary.csv",
                 mime="text/csv"
             )
-
-# Sidebar navigation for professors
-if st.session_state.user.get('is_professor'):
-    with st.sidebar:
-        st.title('Professor Menu')
-        st.page_link('pages/2_Professor_View.py', label='Professor View', icon='👨‍🏫')
-        st.page_link('pages/5_Prompt_Management.py', label='Prompt Management', icon='📝')
-        st.page_link('pages/create_class.py', label='Create Class', icon='➕')
-        st.page_link('pages/4_Grades_View.py', label='Grades View', icon='📊')
-        st.page_link('pages/6_Assignment_Management.py', label='Assignment Management', icon='🗂️')
-        st.page_link('pages/7_Class_Statistics.py', label='Class Statistics', icon='📈')
-        st.page_link('login.py', label='Logout', icon='🚪') 

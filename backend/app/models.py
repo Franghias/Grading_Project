@@ -146,11 +146,15 @@ class User(Base):
     email = Column(String, unique=True, index=True)
     name = Column(String)
     user_id = Column(String, unique=True, index=True)
-    hashed_password = Column(String)
+    hashed_password = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
     is_professor = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    __table_args__ = (
+        CheckConstraint('length(hashed_password) >= 8', name='hashed_password_min_length'),
+    )
 
     # Relationships
     submissions = relationship("Submission", back_populates="user")
@@ -173,3 +177,5 @@ class GradingPrompt(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     class_id = Column(Integer, ForeignKey("classes.id"), nullable=True)  # Null for global prompts, set for class-specific
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)  # Null for global prompts, set for professor
+    creator = relationship("User", backref="grading_prompts", foreign_keys=[created_by])

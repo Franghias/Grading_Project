@@ -153,108 +153,172 @@ for class_data in all_classes:
 # UI: Enrolled and Available Classes
 # =========================
 
-# Add a toggle to switch between class view and statistics view
-view_option = st.radio(
-    "Select View",
-    ("Class List", "My Statistics"),
-    horizontal=True,
-    index=0
-)
+# =========================
+# UI: Enrolled and Available Classes (existing code)
+# =========================
+col1, col2 = st.columns(2)
+with col1:
+    st.markdown("### Your Enrolled Classes")
+    if enrolled_classes:
+        for class_data in enrolled_classes:
+            with st.expander(f"{class_data['name']} ({class_data['code']})", expanded=True):
+                st.markdown(f"**Description:** {class_data['description'] or 'No description available'}")
+                st.markdown(f"**Prerequisites:** {class_data['prerequisites'] or 'None'}")
+                st.markdown(f"**Learning Objectives:** {class_data['learning_objectives'] or 'None'}")
+                st.markdown("**Professors:**")
+                for professor in class_data['professors']:
+                    st.markdown(f"- {professor['name']} ({professor['email']})")
+                # Assignment expanders
+                try:
+                    response = requests.get(
+                        f"{API_URL}/classes/{class_data['id']}/assignments/",
+                        headers={"Authorization": f"Bearer {st.session_state.token}"}
+                    )
+                    response.raise_for_status()
+                    assignments = response.json()
+                except requests.RequestException as e:
+                    st.error(f"Error fetching assignments: {str(e)}")
+                    assignments = []
+                if assignments:
+                    for assignment in assignments:
+                        with st.expander(f"Assignment: {assignment['name']}", expanded=False):
+                            st.markdown(f"**Description:** {assignment.get('description', 'No description')}")
+                            # Fetch student's submissions for this assignment
+                            try:
+                                response = requests.get(
+                                    f"{API_URL}/submissions/",
+                                    headers={"Authorization": f"Bearer {st.session_state.token}"}
+                                )
+                                response.raise_for_status()
+                                all_submissions = response.json()
+                            except requests.RequestException as e:
+                                st.error(f"Error fetching submissions: {str(e)}")
+                                all_submissions = []
+                            my_subs = [s for s in all_submissions if s['assignment_id'] == assignment['id'] and s['class_id'] == class_data['id']]
 
-if view_option == "Class List":
-    # =========================
-    # UI: Enrolled and Available Classes (existing code)
-    # =========================
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown("### Your Enrolled Classes")
-        if enrolled_classes:
-            for class_data in enrolled_classes:
-                with st.expander(f"{class_data['name']} ({class_data['code']})", expanded=True):
-                    st.markdown(f"**Description:** {class_data['description'] or 'No description available'}")
-                    st.markdown(f"**Prerequisites:** {class_data['prerequisites'] or 'None'}")
-                    st.markdown(f"**Learning Objectives:** {class_data['learning_objectives'] or 'None'}")
-                    st.markdown("**Professors:**")
-                    for professor in class_data['professors']:
-                        st.markdown(f"- {professor['name']} ({professor['email']})")
-                    # Assignment expanders
-                    try:
-                        response = requests.get(
-                            f"{API_URL}/classes/{class_data['id']}/assignments/",
-                            headers={"Authorization": f"Bearer {st.session_state.token}"}
-                        )
-                        response.raise_for_status()
-                        assignments = response.json()
-                    except requests.RequestException as e:
-                        st.error(f"Error fetching assignments: {str(e)}")
-                        assignments = []
-                    if assignments:
-                        for assignment in assignments:
-                            with st.expander(f"Assignment: {assignment['name']}", expanded=False):
-                                st.markdown(f"**Description:** {assignment.get('description', 'No description')}")
-                                # Fetch student's submissions for this assignment
-                                try:
-                                    response = requests.get(
-                                        f"{API_URL}/submissions/",
-                                        headers={"Authorization": f"Bearer {st.session_state.token}"}
-                                    )
-                                    response.raise_for_status()
-                                    all_submissions = response.json()
-                                except requests.RequestException as e:
-                                    st.error(f"Error fetching submissions: {str(e)}")
-                                    all_submissions = []
-                                my_subs = [s for s in all_submissions if s['assignment_id'] == assignment['id'] and s['class_id'] == class_data['id']]
+                            # Fetch class prompt for this class
+                            try:
+                                prompt_response = requests.get(
+                                    f"{API_URL}/classes/{class_data['id']}/prompt",
+                                    headers={"Authorization": f"Bearer {st.session_state.token}"}
+                                )
+                                if prompt_response.status_code == 200:
+                                    class_prompt = prompt_response.json().get('prompt', '')
+                                else:
+                                    class_prompt = ''
+                            except Exception as e:
+                                class_prompt = ''
+
+                            if not class_prompt:
+                                st.warning("Waiting for professor to add AI grading prompt for this class.")
+                                st.info("You can still submit your code, but AI grading will be available once your professor adds a prompt.")
+                                with st.form(key=f"submit_form_{class_data['id']}_{assignment['id']}"):
+                                    code = st.text_area("Paste your code here:", height=200)
+                                    submit_btn = st.form_submit_button("Submit Code")
+                                    if submit_btn:
+                                        if not code.strip():
+                                            st.error("Please enter your code before submitting.")
+                                        else:
+                                            try:
+                                                submit_response = requests.post(
+                                                    f"{API_URL}/submissions/",
+                                                    data={
+                                                        "code": code,
+                                                        "class_id": class_data['id'],
+                                                        "assignment_id": assignment['id']
+                                                    },
+                                                    headers={"Authorization": f"Bearer {st.session_state.token}"}
+                                                )
+                                                submit_response.raise_for_status()
+                                                st.success("Code submitted successfully! AI grading will be available once your professor adds a prompt.")
+                                                st.experimental_rerun()
+                                            except requests.RequestException as e:
+                                                st.error(f"Error submitting code: {str(e)}")
+                                # Show previous submissions (without AI grading)
                                 if my_subs:
                                     for i, sub in enumerate(sorted(my_subs, key=lambda x: x['created_at']), 1):
                                         st.markdown(f"**Submission {i}**")
-                                        st.markdown(f"- **Final Grade:** {sub.get('final_grade', 'N/A')}")
-                                        st.markdown(f"- **AI Grade:** {sub.get('ai_grade', 'N/A')}")
-                                        st.markdown(f"- **Professor Grade:** {sub.get('professor_grade', 'N/A')}")
-                                        st.markdown(f"- **AI Feedback:** {sub.get('ai_feedback', 'N/A')}")
-                                        st.markdown(f"- **Professor Feedback:** {sub.get('professor_feedback', 'N/A')}")
                                         st.markdown(f"- **Submitted at:** {sub.get('created_at', '')[:19].replace('T', ' ')}")
                                         st.markdown("**Submitted Code:**")
                                         st.code(sub.get('code', ''), language="python")
                                         st.markdown("---")
                                 else:
                                     st.info("No submissions for this assignment yet.")
-                    else:
-                        st.info("No assignments for this class.")
-                    # Button to view class details
-                    if st.button(f"Go to {class_data['name']}", key=f"view_{class_data['id']}"):
+                            else:
+                                st.success("AI grading is enabled for this class.")
+                                with st.form(key=f"submit_form_{class_data['id']}_{assignment['id']}"):
+                                    code = st.text_area("Paste your code here:", height=200)
+                                    submit_btn = st.form_submit_button("Submit Code")
+                                    if submit_btn:
+                                        if not code.strip():
+                                            st.error("Please enter your code before submitting.")
+                                        else:
+                                            try:
+                                                submit_response = requests.post(
+                                                    f"{API_URL}/submissions/",
+                                                    data={
+                                                        "code": code,
+                                                        "class_id": class_data['id'],
+                                                        "assignment_id": assignment['id']
+                                                    },
+                                                    headers={"Authorization": f"Bearer {st.session_state.token}"}
+                                                )
+                                                submit_response.raise_for_status()
+                                                st.success("Code submitted successfully! Check below for your AI grade and feedback.")
+                                                st.experimental_rerun()
+                                            except requests.RequestException as e:
+                                                st.error(f"Error submitting code: {str(e)}")
+                                # Show previous submissions (with AI grading/results)
+                                if my_subs:
+                                    for i, sub in enumerate(sorted(my_subs, key=lambda x: x['created_at']), 1):
+                                        st.markdown(f"**Submission {i}**")
+                                        st.markdown(f"- **Final Grade:** {sub.get('final_grade', 'N/A')}")
+                                        st.markdown(f"- **Professor Feedback:** {sub.get('professor_feedback', 'N/A')}")
+                                        st.markdown(f"- **AI Grade:** {sub.get('ai_grade', 'N/A')}")
+                                        st.markdown(f"- **AI Feedback:** {sub.get('ai_feedback', 'N/A')}")
+                                        st.markdown(f"- **Submitted at:** {sub.get('created_at', '')[:19].replace('T', ' ')}")
+                                        st.markdown("**Submitted Code:**")
+                                        st.code(sub.get('code', ''), language="python")
+                                        st.markdown("---")
+                                else:
+                                    st.info("No submissions for this assignment yet.")
+                else:
+                    st.info("No assignments for this class.")
+                # Button to view class details
+                if st.button(f"Go to {class_data['name']}", key=f"view_{class_data['id']}"):
+                    st.session_state.selected_class = class_data
+                    st.switch_page("pages/1_Home.py")
+    else:
+        st.info("You haven't enrolled in any classes yet.")
+with col2:
+    st.markdown("### Available Classes")
+    if available_classes:
+        for class_data in available_classes:
+            with st.expander(f"{class_data['name']} ({class_data['code']})", expanded=True):
+                st.markdown(f"**Description:** {class_data['description'] or 'No description available'}")
+                st.markdown(f"**Prerequisites:** {class_data['prerequisites'] or 'None'}")
+                st.markdown(f"**Learning Objectives:** {class_data['learning_objectives'] or 'None'}")
+                st.markdown("**Professors:**")
+                for professor in class_data['professors']:
+                    st.markdown(f"- {professor['name']} ({professor['email']})")
+                # Enroll button
+                if st.button(f"Enroll in {class_data['name']}", key=f"enroll_{class_data['id']}"):
+                    try:
+                        response = requests.post(
+                            f"{API_URL}/classes/{class_data['id']}/enroll",
+                            headers={"Authorization": f"Bearer {st.session_state.token}"}
+                        )
+                        response.raise_for_status()
+                        st.success(f"Successfully enrolled in {class_data['name']}!")
+                        st.session_state.enrolled_classes.append(class_data['id'])
                         st.session_state.selected_class = class_data
+                        time.sleep(2)
                         st.switch_page("pages/1_Home.py")
-        else:
-            st.info("You haven't enrolled in any classes yet.")
-    with col2:
-        st.markdown("### Available Classes")
-        if available_classes:
-            for class_data in available_classes:
-                with st.expander(f"{class_data['name']} ({class_data['code']})", expanded=True):
-                    st.markdown(f"**Description:** {class_data['description'] or 'No description available'}")
-                    st.markdown(f"**Prerequisites:** {class_data['prerequisites'] or 'None'}")
-                    st.markdown(f"**Learning Objectives:** {class_data['learning_objectives'] or 'None'}")
-                    st.markdown("**Professors:**")
-                    for professor in class_data['professors']:
-                        st.markdown(f"- {professor['name']} ({professor['email']})")
-                    # Enroll button
-                    if st.button(f"Enroll in {class_data['name']}", key=f"enroll_{class_data['id']}"):
-                        try:
-                            response = requests.post(
-                                f"{API_URL}/classes/{class_data['id']}/enroll",
-                                headers={"Authorization": f"Bearer {st.session_state.token}"}
-                            )
-                            response.raise_for_status()
-                            st.success(f"Successfully enrolled in {class_data['name']}!")
-                            st.session_state.enrolled_classes.append(class_data['id'])
-                            st.session_state.selected_class = class_data
-                            time.sleep(2)
-                            st.switch_page("pages/1_Home.py")
-                        except requests.RequestException as e:
-                            st.error(f"Error enrolling in class: {str(e)}")
-        else:
-            st.info("No available classes to enroll in at the moment.")
-    st.markdown("---")
+                    except requests.RequestException as e:
+                        st.error(f"Error enrolling in class: {str(e)}")
+    else:
+        st.info("No available classes to enroll in at the moment.")
+st.markdown("---")
 
 # =========================
 # Navigation and Logout Buttons

@@ -1,4 +1,34 @@
 # =========================
+# SECURITY: Superuser Access Restriction
+# =========================
+# For full database management and migrations, this application expects to connect as a PostgreSQL superuser.
+# Set your .env file as follows (example):
+#   POSTGRES_USER=postgres
+#   POSTGRES_PASSWORD=your_superuser_password
+#   POSTGRES_DB=grading_db
+#   POSTGRES_HOST=localhost
+#   POSTGRES_PORT=5432
+#
+# WARNING: Using a non-superuser may cause migrations or certain operations to fail.
+#
+# To enforce this, the code below checks the username and warns if not 'postgres'.
+
+import sys
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
+SUPERUSER_NAMES = [name.strip() for name in os.getenv("SUPERUSER_NAMES").split(",")]
+
+if os.getenv("POSTGRES_USER") not in SUPERUSER_NAMES:
+    print(f"[SECURITY WARNING] The database user '{os.getenv('POSTGRES_USER')}' is not a recognized superuser.\n"
+          f"For full functionality, set POSTGRES_USER to one of: {SUPERUSER_NAMES}", file=sys.stderr)
+    # Optionally, uncomment the next line to block startup if not superuser:
+    sys.exit(1)
+
+# =========================
 # Database Configuration and Session Management
 # =========================
 # This file sets up the SQLAlchemy engine, session factory, and base class for ORM models.
@@ -7,8 +37,6 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-import os
-from dotenv import load_dotenv
 import time
 import logging
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
@@ -20,9 +48,6 @@ from sqlalchemy.exc import OperationalError, SQLAlchemyError
 # Configure logging for database operations
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-# Load environment variables from .env file
-load_dotenv()
 
 # =========================
 # Database Connection Settings

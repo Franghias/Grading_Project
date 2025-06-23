@@ -65,6 +65,28 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =========================
+# Sidebar Navigation
+# =========================
+
+if 'user' in st.session_state:
+    if st.session_state.user.get('is_professor'):
+        with st.sidebar:
+            st.title('Professor Menu')
+            st.page_link('pages/2_Professor_View.py', label='Professor View', icon='👨‍🏫')
+            st.page_link('pages/5_Prompt_Management.py', label='Prompt Management', icon='📝')
+            st.page_link('pages/7_Class_Statistics.py', label='Class Statistics', icon='📈')
+            st.page_link('pages/6_Assignment_Management.py', label='Assignment Management', icon='🗂️')
+            st.page_link('pages/create_class.py', label='Create Class', icon='➕')
+            st.page_link('login.py', label='Logout', icon='🚪') 
+    else:
+        with st.sidebar:
+            st.title('Student Menu')
+            st.page_link('pages/3_Student_View.py', label='Student View', icon='👨‍🎓')
+            st.page_link('pages/1_Home.py', label='Home', icon='🏠')
+            st.page_link('pages/4_Grades_View.py', label='Grades View', icon='📊')
+            st.page_link('login.py', label='Logout', icon='🚪') 
+
+# =========================
 # Custom CSS Styling
 # =========================
 
@@ -281,25 +303,3 @@ with st.form("create_class_form"):
                     st.error(f"Error creating class: {error_msg}")
 
 st.markdown('</div>', unsafe_allow_html=True)
-
-# =========================
-# Sidebar Navigation
-# =========================
-
-if 'user' in st.session_state:
-    if st.session_state.user.get('is_professor'):
-        with st.sidebar:
-            st.title('Professor Menu')
-            st.page_link('pages/2_Professor_View.py', label='Professor View', icon='👨‍🏫')
-            st.page_link('pages/5_Prompt_Management.py', label='Prompt Management', icon='📝')
-            st.page_link('pages/create_class.py', label='Create Class', icon='➕')
-            st.page_link('pages/4_Grades_View.py', label='Grades View', icon='📊')
-            st.page_link('pages/6_Assignment_Management.py', label='Assignment Management', icon='🗂️')
-            st.page_link('login.py', label='Logout', icon='🚪')
-    else:
-        with st.sidebar:
-            st.title('Student Menu')
-            st.page_link('pages/3_Student_View.py', label='Student View', icon='👨‍🎓')
-            st.page_link('pages/1_Home.py', label='Home', icon='🏠')
-            st.page_link('pages/4_Grades_View.py', label='Grades View', icon='📊')
-            st.page_link('login.py', label='Logout', icon='🚪') 

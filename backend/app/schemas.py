@@ -51,6 +51,12 @@ class UserCreate(UserBase):
     password: str
     is_professor: bool = False
 
+    @validator('password')
+    def password_length(cls, v):
+        if len(v) < 8:
+            raise ValueError('Password must be at least 8 characters long')
+        return v
+
 # =========================
 # Assignment Schemas
 # =========================
@@ -204,6 +210,7 @@ class GradingPromptBase(BaseModel):
     prompt: str
     class_id: Optional[int] = None
     title: Optional[str] = None
+    created_by: Optional[int] = None  # User ID of the creator (None for global prompts)
 
 class GradingPromptCreate(GradingPromptBase):
     """
@@ -218,6 +225,7 @@ class GradingPromptResponse(GradingPromptBase):
     id: int
     created_at: datetime
     updated_at: Optional[datetime] = None
+    # created_by is inherited
     model_config = ConfigDict(from_attributes=True)
 
 class SampleGradingPrompt(BaseModel):

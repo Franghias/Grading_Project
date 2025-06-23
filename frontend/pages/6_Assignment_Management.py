@@ -69,6 +69,7 @@ if 'user' in st.session_state:
             st.page_link('pages/6_Assignment_Management.py', label='Assignment Management', icon='🗂️')
             st.page_link('pages/create_class.py', label='Create Class', icon='➕')
             st.page_link('login.py', label='Logout', icon='🚪') 
+            st.markdown("---")
     else:
         with st.sidebar:
             st.title('Student Menu')

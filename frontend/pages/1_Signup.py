@@ -175,7 +175,7 @@ st.markdown("""
         <ul style="color: #4a5568; margin: 0; padding-left: 1.5rem;">
             <li>ID must be exactly 8 digits</li>
             <li>Email must be valid</li>
-            <li>Password must be at least 8 characters long</li>
+            <li><b>Password must be at least 8 characters long</b></li>
         </ul>
     </div>
 """, unsafe_allow_html=True)
@@ -198,46 +198,36 @@ with st.form("signup_form"):
     )
     
     submit_button = st.form_submit_button("Sign Up")
-
     if submit_button:
-        if name and user_id and email and password and confirm_password:
-            # Validate user ID
-            if not user_id.isdecimal() or len(user_id) != 8:
-                st.error("ID must be exactly 8 digits")
-            elif password != confirm_password:
-                st.error("Passwords do not match")
-            else:
-                try:
-                    signup_data = {
+        if not name or not user_id or not email or not password or not confirm_password:
+            st.error("Please fill in all fields.")
+        elif len(password) < 8:
+            st.error("Password must be at least 8 characters long.")
+        elif password != confirm_password:
+            st.error("Passwords do not match.")
+        else:
+            # Proceed with signup request
+            try:
+                response = requests.post(
+                    f"{API_URL}/auth/signup",
+                    json={
                         "name": name,
                         "user_id": user_id,
                         "email": email,
                         "password": password,
-                        "is_professor": role == "Professor"  # Set is_professor based on role selection
+                        "is_professor": role == "Professor"
                     }
-                    # print(f"Sending signup request with data: {signup_data}")
-                    response = requests.post(
-                        f"{API_URL}/auth/signup",
-                        json=signup_data
-                    )
-                    # print(f"Response status code: {response.status_code}")
-                    # print(f"Response content: {response.text}")
-                    response.raise_for_status()
-                    result = response.json()
-                    
-                    st.success("Account created successfully! Please login.")
-                    # Redirect to login page
-                    st.switch_page("login.py")
-                except requests.RequestException as e:
+                )
+                response.raise_for_status()
+                st.success("Account created successfully! Please log in.")
+                time.sleep(1)
+                st.switch_page("login.py")
+            except requests.RequestException as e:
+                try:
+                    error_msg = response.json().get("detail", str(e))
+                except Exception:
                     error_msg = str(e)
-                    if "User ID already registered" in error_msg:
-                        st.error("This ID is already registered")
-                    elif "Email already registered" in error_msg:
-                        st.error("This email is already registered")
-                    else:
-                        st.error(f"Signup failed: {error_msg}")
-        else:
-            st.error("Please fill in all fields")
+                st.error(f"Signup failed: {error_msg}")
 
 # -------------------------
 # Login Link

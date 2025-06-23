@@ -252,7 +252,6 @@ if view_option == "Assignments and Submissions":
                     st.markdown(f"**Submitted at:** {submitted_at[:19].replace('T', ' ')}")
                 with col2:
                     st.markdown(f"**Professor Feedback:** {sub.get('professor_feedback', 'N/A')}")
-                    st.markdown(f"**AI Feedback:** {sub.get('ai_feedback', 'N/A')}")
                 st.markdown("**Submitted Code:**")
                 st.code(sub.get('code', ''), language="python")
                 st.markdown("---")
@@ -266,13 +265,13 @@ else:
     else:
         data = []
         for sub in submissions:
-            grade = sub.get('final_grade') or sub.get('professor_grade') or sub.get('ai_grade')
+            # Only use final_grade or professor_grade for statistics
+            grade = sub.get('final_grade') or sub.get('professor_grade')
             if grade is not None:
                 data.append({
                     'assignment_id': sub['assignment_id'],
                     'class_id': sub['class_id'],
                     'grade': grade,
-                    'ai_grade': sub.get('ai_grade'),
                     'professor_grade': sub.get('professor_grade'),
                     'final_grade': sub.get('final_grade'),
                     'created_at': sub['created_at'],
@@ -418,28 +417,17 @@ if st.session_state.user.get('is_professor'):
                 st.markdown(f"**Submission {i} - {submission['created_at'][:10]}**")
                 col1, col2, col3 = st.columns(3)
                 with col1:
-                    if submission['ai_grade'] is not None:
-                        ai_grade_color = "green" if submission['ai_grade'] >= 70 else "orange" if submission['ai_grade'] >= 50 else "red"
-                        st.markdown(f"""
-                            <div style="background-color: #f0f9ff; padding: 1rem; border-radius: 0.5rem; text-align: center; border: 1px solid #bae6fd;">
-                                <h4 style="margin: 0 0 0.5rem 0; color: #0369a1;">🤖 AI Grade</h4>
-                                <h2 style="margin: 0; color: {ai_grade_color}; font-size: 1.5rem;">{submission['ai_grade']}</h2>
-                            </div>
-                        """, unsafe_allow_html=True)
-                    else:
-                        st.markdown("**🤖 AI Grade:** Not available")
-                with col2:
                     if submission['professor_grade'] is not None:
                         prof_grade_color = "green" if submission['professor_grade'] >= 70 else "orange" if submission['professor_grade'] >= 50 else "red"
                         st.markdown(f"""
-                            <div style="background-color: #f0fdf4; padding: 1rem; border-radius: 0.5rem; text-align: center; border: 1px solid #bbf7d0;">
-                                <h4 style="margin: 0 0 0.5rem 0; color: #166534;">👨‍🏫 Professor Grade</h4>
+                            <div style="background-color: #f0f9ff; padding: 1rem; border-radius: 0.5rem; text-align: center; border: 1px solid #bae6fd;">
+                                <h4 style="margin: 0 0 0.5rem 0; color: #0369a1;">👨‍🏫 Professor Grade</h4>
                                 <h2 style="margin: 0; color: {prof_grade_color}; font-size: 1.5rem;">{submission['professor_grade']}</h2>
                             </div>
                         """, unsafe_allow_html=True)
                     else:
                         st.markdown("**👨‍🏫 Professor Grade:** Not graded")
-                with col3:
+                with col2:
                     if submission['final_grade'] is not None:
                         final_grade_color = "green" if submission['final_grade'] >= 70 else "orange" if submission['final_grade'] >= 50 else "red"
                         st.markdown(f"""
@@ -489,10 +477,6 @@ if st.session_state.user.get('is_professor'):
                 # Feedback sections
                 col1, col2 = st.columns(2)
                 with col1:
-                    if submission['ai_feedback']:
-                        st.markdown("### 🤖 AI Feedback")
-                        st.markdown(f"<div style='background-color: #f8fafc; padding: 1rem; border-radius: 0.5rem; border: 1px solid #e2e8f0;'>{submission['ai_feedback']}</div>", unsafe_allow_html=True)
-                with col2:
                     if submission['professor_feedback']:
                         st.markdown("### 👨‍🏫 Professor Feedback")
                         # Convert newlines to HTML br tags to preserve formatting
