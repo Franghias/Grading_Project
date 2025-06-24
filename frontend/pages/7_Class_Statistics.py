@@ -21,8 +21,13 @@ from datetime import datetime, timedelta
 # =========================
 # Environment and API Setup
 # =========================
+from pathlib import Path
 
-load_dotenv()
+env_path = Path(__file__).resolve().parent.parent / '.env'
+
+# Load environment variables from .env file
+load_dotenv(dotenv_path=env_path)
+
 API_URL = os.getenv('API_URL', 'http://localhost:8000')
 
 # =========================

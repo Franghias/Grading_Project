@@ -16,6 +16,13 @@ import time
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+from pathlib import Path
+
+env_path = Path(__file__).resolve().parent.parent / '.env'
+
+# Load environment variables from .env file
+load_dotenv(dotenv_path=env_path)
+
 # Set up logging for this module
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -26,9 +33,6 @@ RETRY_BACKOFF_FACTOR = 0.5
 CACHE_SIZE = 100
 MAX_CODE_LENGTH = 20000  # Maximum allowed code length
 # ALLOWED_CHARS = set("#abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_+-=[]{}()<>.,;:!@#$%^&*|\\/\"' \n\t")
-
-# Load environment variables for API keys and endpoints
-load_dotenv()
 
 def validate_code_input(code: str) -> tuple[bool, str]:
     """

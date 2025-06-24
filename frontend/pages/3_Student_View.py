@@ -14,8 +14,13 @@ import time
 # Environment and API Setup
 # =========================
 
-# Load environment variables
-load_dotenv()
+from pathlib import Path
+
+env_path = Path(__file__).resolve().parent.parent / '.env'
+
+# Load environment variables from .env file
+load_dotenv(dotenv_path=env_path)
+
 API_URL = os.getenv('API_URL', 'http://localhost:8000')
 
 # =========================

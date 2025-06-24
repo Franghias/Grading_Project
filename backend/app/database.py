@@ -16,17 +16,20 @@
 import sys
 import os
 from dotenv import load_dotenv
+from pathlib import Path
+
+env_path = Path(__file__).resolve().parent.parent / '.env'
 
 # Load environment variables from .env file
-load_dotenv()
+load_dotenv(dotenv_path=env_path)
 
-SUPERUSER_NAMES = [name.strip() for name in os.getenv("SUPERUSER_NAMES").split(",")]
+# SUPERUSER_NAMES = [name.strip() for name in os.getenv("SUPERUSER_NAMES").split(",")]
 
-if os.getenv("POSTGRES_USER") not in SUPERUSER_NAMES:
-    print(f"[SECURITY WARNING] The database user '{os.getenv('POSTGRES_USER')}' is not a recognized superuser.\n"
-          f"For full functionality, set POSTGRES_USER to one of: {SUPERUSER_NAMES}", file=sys.stderr)
+# if os.getenv("POSTGRES_USER") not in SUPERUSER_NAMES:
+#     print(f"[SECURITY WARNING] The database user '{os.getenv('POSTGRES_USER')}' is not a recognized superuser.\n"
+#           f"For full functionality, set POSTGRES_USER to one of: {SUPERUSER_NAMES}", file=sys.stderr)
     # Optionally, uncomment the next line to block startup if not superuser:
-    sys.exit(1)
+    # sys.exit(1)
 
 # =========================
 # Database Configuration and Session Management

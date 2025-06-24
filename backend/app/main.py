@@ -28,6 +28,13 @@ from pydantic import ValidationError
 from collections import defaultdict, deque
 import time
 
+from pathlib import Path
+
+env_path = Path(__file__).resolve().parent.parent / '.env'
+
+# Load environment variables from .env file
+load_dotenv(dotenv_path=env_path)
+
 # =========================
 # Application Initialization
 # =========================

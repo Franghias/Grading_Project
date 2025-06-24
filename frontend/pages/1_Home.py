@@ -44,6 +44,12 @@ if 'user' in st.session_state and not st.session_state.user.get('is_professor'):
 # =========================
 # Environment and API Setup
 # =========================
+from pathlib import Path
+
+env_path = Path(__file__).resolve().parent.parent / '.env'
+
+# Load environment variables from .env file
+load_dotenv(dotenv_path=env_path)
 
 # Load environment variables
 load_dotenv()
