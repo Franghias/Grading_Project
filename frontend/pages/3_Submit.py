@@ -21,7 +21,7 @@ env_path = Path(__file__).resolve().parent.parent / '.env'
 # Load environment variables from .env file
 load_dotenv(dotenv_path=env_path)
 
-API_URL = os.getenv('API_URL', 'http://localhost:8000')
+API_URL = os.getenv('API_URL', 'http://localhost:8000').strip()
 
 # =========================
 # Page Configuration and Sidebar

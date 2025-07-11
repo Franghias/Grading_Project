@@ -20,7 +20,7 @@ env_path = Path(__file__).resolve().parent.parent / '.env'
 # Load environment variables from .env file
 load_dotenv(dotenv_path=env_path)
 
-API_URL = os.getenv('API_URL', 'http://localhost:8000')
+API_URL = os.getenv('API_URL', 'http://localhost:8000').strip()
 
 # =========================
 # Page Configuration and Sidebar
@@ -33,28 +33,105 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Hide default sidebar
+# =========================
+# Custom CSS Styling (Consistent with new theme)
+# =========================
 st.markdown("""
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        /* --- Animation Keyframes --- */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* --- Hide default sidebar --- */
         [data-testid="stSidebarNav"] {display: none;}
+
+        /* --- Theme & Base Styles --- */
+        :root {
+            --primary-color: #4a9a9b;
+            --primary-hover-color: #3d8283;
+            --background-color: #f0f2f6;
+            --card-background-color: #ffffff;
+            --text-color: #262730;
+            --subtle-text-color: #5E5E5E;
+            --border-color: #e0e0e0;
+        }
+        .stApp {
+            background-color: var(--background-color);
+            font-family: 'Inter', sans-serif;
+            color: var(--text-color);
+        }
+        .main .block-container {
+            padding: 2rem;
+            animation: fadeIn 0.5s ease-in-out forwards;
+        }
+
+        /* --- Header Styling --- */
+        .st-emotion-cache-10trblm { /* This targets st.title */
+            color: var(--primary-color);
+            padding-bottom: 1rem;
+        }
+        h2, h3 { /* This targets st.subheader */
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 0.5rem;
+        }
+
+        /* --- Expander Styling --- */
+        .stExpander {
+            background-color: var(--card-background-color);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            margin-bottom: 1rem;
+        }
+        .stExpander header { font-size: 1.1rem; font-weight: 600; }
+        
+        /* --- Button Styling --- */
+        .stButton > button {
+            border-radius: 8px;
+            padding: 0.6rem 1.2rem;
+            font-weight: 600;
+            transition: all 0.2s ease-in-out;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+        }
+        .stButton > button:hover {
+            transform: translateY(-2px);
+            background-color: var(--primary-hover-color);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        /* --- Input Styling --- */
+        .stTextInput > div > div > input, .stTextArea > div > textarea {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            background-color: #f9f9f9;
+        }
     </style>
 """, unsafe_allow_html=True)
 
-# =========================
-# Sidebar Navigation
-# =========================
 
+# =========================
+# Sidebar Navigation (Original code)
+# =========================
 if 'user' in st.session_state:
     if st.session_state.user.get('is_professor'):
         with st.sidebar:
-            st.title('Professor Menu')
-            st.page_link('pages/2_Professor_View.py', label='Professor View', icon='👨‍🏫')
-            st.page_link('pages/5_Prompt_Management.py', label='Prompt Management', icon='📝')
-            st.page_link('pages/7_Class_Statistics.py', label='Class Statistics', icon='📈')
+            st.title("👨‍🏫 Professor Menu")
+            st.page_link('pages/2_Professor_View.py', label='Professor View', icon='📝')
+            st.page_link('pages/5_Prompt_Management.py', label='Prompt Management', icon='🧠')
             st.page_link('pages/6_Assignment_Management.py', label='Assignment Management', icon='🗂️')
-            st.page_link('pages/create_class.py', label='Create Class', icon='➕')
-            st.page_link('login.py', label='Logout', icon='🚪') 
+            st.page_link('pages/create_class.py', label='Create a New Class', icon='➕')
+            st.page_link('pages/7_Class_Statistics.py', label='Class Statistics', icon='📊')
             st.markdown("---")
+            if st.button("Logout", use_container_width=True):
+                for key in list(st.session_state.keys()):
+                    del st.session_state[key]
+                st.switch_page("login.py")
     else:
         with st.sidebar:
             st.title('Student Menu')
@@ -64,12 +141,10 @@ if 'user' in st.session_state:
             st.page_link('login.py', label='Logout', icon='🚪')
 
 # =========================
-# Page Header and Access Control
+# Page Header and Access Control (Original code)
 # =========================
-
 st.title("📝 Grading Prompt Management")
 
-# Check if user is logged in and is a professor
 if 'user' not in st.session_state:
     st.switch_page("login.py")
 
@@ -78,67 +153,14 @@ if not st.session_state.user.get('is_professor'):
     st.stop()
 
 # =========================
-# API Helper Functions
+# API Helper Functions (Original code)
 # =========================
-
 def get_auth_header():
-    """
-    Return the authorization header for API requests using the current session token.
-    """
     return {"Authorization": f"Bearer {st.session_state.token}"}
 
-def fetch_current_prompt(class_id=None):
-    """
-    Fetch the current grading prompt from the backend API for a specific class.
-    Returns the prompt string or an empty string if not set.
-    """
-    try:
-        if class_id is not None:
-            response = requests.get(f"{API_URL}/grading/custom-prompt?class_id={class_id}", headers=get_auth_header())
-        else:
-            # fallback to sample prompt if no class_id
-            return fetch_sample_prompt()
-        response.raise_for_status()
-        return response.json().get('prompt', '')
-    except Exception as e:
-        st.error(f"Error fetching current prompt: {str(e)}")
-        return ''
-
-def fetch_sample_prompt():
-    """
-    Fetch a sample grading prompt from the backend API.
-    Returns the sample prompt string or an empty string if not available.
-    """
-    try:
-        response = requests.get(f"{API_URL}/grading/sample-prompt", headers=get_auth_header())
-        response.raise_for_status()
-        return response.json().get('prompt', '')
-    except Exception as e:
-        st.error(f"Error fetching sample prompt: {str(e)}")
-        return ''
-
-def fetch_prompt_history():
-    """
-    Fetch the prompt history for the grading system.
-    Currently a stub: returns a list with the sample and current prompt for demonstration.
-    """
-    # TODO: Replace with real API call if available
-    # For now, just return a list with the current prompt and sample prompt for demo
-    current = fetch_current_prompt()
-    sample = fetch_sample_prompt()
-    # Simulate history: [sample, current] if different
-    history = []
-    if sample and sample != current:
-        history.append(sample)
-    if current:
-        history.append(current)
-    return history
-
 # =========================
-# Prompt Display and Management UI
+# Prompt Display and Management UI (Original code)
 # =========================
-
-# Add a class selection dropdown at the top
 classes = []
 try:
     response = requests.get(f"{API_URL}/classes/", headers=get_auth_header())
@@ -152,7 +174,6 @@ if classes:
     selected_class = st.selectbox("Select a class to manage prompts for:", options=classes, format_func=lambda c: f"{c['name']} ({c['code']})")
     selected_class_id = selected_class['id']
 
-# Restore the section to show the current prompt assigned to the selected class
 if selected_class_id:
     st.subheader("Current Grading Prompt")
     try:
@@ -166,26 +187,20 @@ if selected_class_id:
     except Exception as e:
         st.error(f"Error fetching current class prompt: {str(e)}")
 
-# Show prompt history in expandable sections with 'Use this prompt' button
 st.subheader("Prompt History")
-
-# Fetch all prompts from backend
 professor_prompts = []
 global_prompts = []
 try:
-    # Fetch professor's own unassigned prompts
     user_id = st.session_state.user['id']
     response_prof = requests.get(f"{API_URL}/prompts/", params={"created_by": user_id, "class_id": None}, headers=get_auth_header())
     response_prof.raise_for_status()
     professor_prompts = response_prof.json()
-    # Fetch global prompts (created_by=None, class_id=None)
     response_global = requests.get(f"{API_URL}/prompts/", params={"created_by": None, "class_id": None}, headers=get_auth_header())
     response_global.raise_for_status()
     global_prompts = response_global.json()
 except Exception as e:
     st.error(f"Error fetching prompts: {str(e)}")
 
-# Professor Prompts Section (history: only prompts with class_id=None)
 st.markdown("### 👨‍🏫 Professor Prompt History (Unassigned)")
 if professor_prompts:
     for prompt in professor_prompts:
@@ -197,11 +212,7 @@ if professor_prompts:
                         st.warning("Please select a class to assign this prompt.")
                     else:
                         try:
-                            assign_response = requests.post(
-                                f"{API_URL}/classes/{selected_class_id}/prompt",
-                                params={"prompt_id": prompt['id']},
-                                headers=get_auth_header()
-                            )
+                            assign_response = requests.post(f"{API_URL}/classes/{selected_class_id}/prompt", params={"prompt_id": prompt['id']}, headers=get_auth_header())
                             if assign_response.status_code == 200:
                                 st.success("Prompt assigned to class!")
                                 st.rerun()
@@ -212,7 +223,6 @@ if professor_prompts:
 else:
     st.info("No unassigned professor prompts available.")
 
-# Global Prompts Section
 st.markdown("### 🌐 Global Prompts (Available to All Classes)")
 if global_prompts:
     for prompt in global_prompts:
@@ -239,11 +249,9 @@ else:
     st.info("No global prompts available.")
 
 # =========================
-# Edit and Save New Prompt UI (with edit existing option)
+# Edit and Save New Prompt UI (Original code)
 # =========================
 st.subheader("Edit and Save New Prompt")
-
-# Dropdown to select a prompt to edit, or create new
 prompt_options = ["Create New Prompt"] + [p['title'] or f"Untitled Prompt {p['id']}" for p in professor_prompts]
 selected_option = st.selectbox("Select a prompt to edit or create a new one:", options=prompt_options)
 
@@ -257,80 +265,40 @@ else:
     edit_prompt_title = professor_prompts[idx]['title'] or ""
     edit_prompt_body = professor_prompts[idx]['prompt'] or ""
 
-new_prompt_title = st.text_input(
-    "Prompt Title:",
-    value=edit_prompt_title,
-    key="edit_new_prompt_title",
-    help="Enter a descriptive title for your grading prompt."
-)
-new_prompt = st.text_area(
-    "Enter your grading prompt here:",
-    value=edit_prompt_body,
-    key="edit_new_prompt_body",
-    height=400,
-    help="You can use {code} as a placeholder for the student's code."
-)
+new_prompt_title = st.text_input("Prompt Title:", value=edit_prompt_title, key="edit_new_prompt_title", help="Enter a descriptive title for your grading prompt.")
+new_prompt = st.text_area("Enter your grading prompt here:", value=edit_prompt_body, key="edit_new_prompt_body", height=400, help="You can use {code} as a placeholder for the student's code.")
 
 required_phrase = '"grade":'
 if st.button("Save Prompt"):
-    if not new_prompt_title.strip():
-        st.warning("Please enter a title for your prompt.")
-    elif not new_prompt.strip():
-        st.warning("Please enter your grading prompt.")
-    elif required_phrase not in new_prompt:
-        st.warning("Your prompt must instruct the AI to return a JSON object with a top-level 'grade' field. Please see the sample above.")
+    if not new_prompt_title.strip() or not new_prompt.strip() or required_phrase not in new_prompt:
+        if not new_prompt_title.strip(): st.warning("Please enter a title for your prompt.")
+        if not new_prompt.strip(): st.warning("Please enter your grading prompt.")
+        if required_phrase not in new_prompt: st.warning("Your prompt must instruct the AI to return a JSON object with a top-level 'grade' field.")
     else:
         try:
             if edit_prompt_id is not None:
-                # Update existing prompt
-                response = requests.put(
-                    f"{API_URL}/prompts/{edit_prompt_id}",
-                    headers={**get_auth_header(), "Content-Type": "application/json"},
-                    json={"title": new_prompt_title, "prompt": new_prompt, "class_id": None}
-                )
-                response.raise_for_status()
+                response = requests.put(f"{API_URL}/prompts/{edit_prompt_id}", headers={**get_auth_header(), "Content-Type": "application/json"}, json={"title": new_prompt_title, "prompt": new_prompt, "class_id": None})
                 st.success("Prompt updated successfully!")
             else:
-                # Create new prompt
-                response = requests.post(
-                    f"{API_URL}/prompts/",
-                    headers={**get_auth_header(), "Content-Type": "application/json"},
-                    json={"prompt": new_prompt, "class_id": None, "title": new_prompt_title}
-                )
-                response.raise_for_status()
+                response = requests.post(f"{API_URL}/prompts/", headers={**get_auth_header(), "Content-Type": "application/json"}, json={"prompt": new_prompt, "class_id": None, "title": new_prompt_title})
                 st.success("New grading prompt saved successfully!")
+            response.raise_for_status()
             st.rerun()
         except Exception as e:
             st.error(f"Error saving prompt: {str(e)}")
 
-# Add a button to push a new prompt to global prompt (class_id=None)
 st.subheader("Create and Push to Global Prompt")
-global_prompt_title = st.text_input(
-    "Global Prompt Title:",
-    value="",
-    help="Enter a descriptive title for your global grading prompt."
-)
-global_prompt = st.text_area(
-    "Enter your global grading prompt here:",
-    value="",
-    height=400,
-    help="You can use {code} as a placeholder for the student's code."
-)
+global_prompt_title = st.text_input("Global Prompt Title:", value="", help="Enter a descriptive title for your global grading prompt.")
+global_prompt = st.text_area("Enter your global grading prompt here:", value="", height=400, help="You can use {code} as a placeholder for the student's code.")
+
 if st.button("Push to Global Prompt"):
-    required_phrase = '"grade":'
-    if not global_prompt_title.strip():
-        st.warning("Please enter a title for your global prompt.")
-    elif not global_prompt.strip():
-        st.warning("Please enter your global grading prompt.")
-    elif required_phrase not in global_prompt:
-        st.warning("Your prompt must instruct the AI to return a JSON object with a top-level 'grade' field. Please see the sample above.")
+    if not global_prompt_title.strip() or not global_prompt.strip() or required_phrase not in global_prompt:
+        if not global_prompt_title.strip(): st.warning("Please enter a title for your global prompt.")
+        if not global_prompt.strip(): st.warning("Please enter your global grading prompt.")
+        if required_phrase not in global_prompt: st.warning("Your prompt must instruct the AI to return a JSON object with a top-level 'grade' field.")
     else:
         try:
-            response = requests.post(
-                f"{API_URL}/prompts/",
-                headers={**get_auth_header(), "Content-Type": "application/json"},
-                json={"prompt": global_prompt, "class_id": None, "title": global_prompt_title}
-            )
+            response = requests.post(f"{API_URL}/prompts/", headers={**get_auth_header(), "Content-Type": "application/json"}, json={"prompt": global_prompt, "class_id": None, "title": global_prompt_title})
             response.raise_for_status()
             st.success("Global grading prompt created successfully!")
             st.rerun()
@@ -338,8 +306,7 @@ if st.button("Push to Global Prompt"):
             st.error(f"Error creating global prompt: {str(e)}")
 
 # =========================
-# Navigation
+# Navigation (Original code)
 # =========================
-
 if st.button("Back to Professor View"):
-    st.switch_page("pages/2_Professor_View.py") 
+    st.switch_page("pages/2_Professor_View.py")

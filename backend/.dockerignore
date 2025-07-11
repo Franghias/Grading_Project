@@ -1,0 +1,231 @@
+# Environment files (contain sensitive data)
+.env
+.env.*
+*.env
+
+# Log files (contain sensitive information)
+*.log
+app.log
+logs/
+log/
+
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Git files
+.git/
+.gitignore
+.gitattributes
+
+# Docker files (to avoid recursive copying)
+Dockerfile
+.dockerignore
+docker-compose*.yml
+docker-compose*.yaml
+
+# Documentation and README files
+*.md
+README*
+CHANGELOG*
+LICENSE*
+
+# Test files and directories
+test_*.py
+*_test.py
+tests/
+testing/
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Backup files
+*.backup
+*.old
+*.orig
+
+# Local configuration files
+config.local.*
+settings.local.*
+
+# Node.js (if any)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# nyc test coverage
+.nyc_output
+
+# Dependency directories
+jspm_packages/
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# parcel-bundler cache (https://parceljs.org/)
+.cache
+.parcel-cache
+
+# Next.js build output
+.next
+
+# Nuxt.js build / generate output
+.nuxt
+dist
+
+# Gatsby files
+.cache/
+public
+
+# Storybook build outputs
+.out
+.storybook-out
+
+# Temporary folders
+tmp/
+temp/
+
+# Local development files
+local/
+dev/
+development/
+
+# Backup and archive files
+*.tar
+*.tar.gz
+*.zip
+*.rar
+*.7z
+
+# Application specific exclusions
+# Exclude any uploaded files or user content
+uploads/
+user_files/
+submissions/
+temp_uploads/
+
+# Exclude any local database dumps
+*.dump
+*.sql
+
+# Exclude any local certificates
+*.pem
+*.key
+*.crt
+*.p12
+
+# Exclude any local configuration that might contain secrets
+config.local.py
+settings.local.py
+local_config.py
+
+# Exclude any migration files that might contain sensitive data
+# (keep the migration scripts but exclude any generated files)
+migrations/*.sql
+migrations/*.dump
+
+# Exclude any backup files
+backup/
+*.backup
+*.bak
+
+# Exclude any cache directories
+.cache/
+cache/
+
+# Exclude any temporary directories created by the application
+temp/
+tmp/ 

@@ -7,6 +7,7 @@
 from fastapi import FastAPI, Depends, File, UploadFile, HTTPException, Form, Body, status, Request, Query, Response
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+from sqlalchemy import select
 from . import models, schemas, database, grading, crud
 import shutil
 import os
@@ -27,6 +28,9 @@ import re
 from pydantic import ValidationError
 from collections import defaultdict, deque
 import time
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+from functools import lru_cache
 
 from pathlib import Path
 
@@ -41,13 +45,9 @@ load_dotenv(dotenv_path=env_path)
 
 print("Starting application initialization...")
 
-# Load environment variables
-load_dotenv()
-# print("Environment variables loaded")
-
 # JWT Configuration
-SECRET_KEY = os.getenv("SECRET_KEY")  # Change this in production
-ALGORITHM = os.getenv("JWT_ALGORITHM")
+SECRET_KEY = os.getenv("SECRET_KEY", "").strip()  # Change this in production
+ALGORITHM = os.getenv("JWT_ALGORITHM", "").strip()
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 # Password hashing
@@ -59,8 +59,11 @@ pwd_context = CryptContext(
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 # Configure logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Thread pool for CPU-intensive tasks
+thread_pool = ThreadPoolExecutor(max_workers=4)
 
 app = FastAPI(
     debug=True,
@@ -75,7 +78,7 @@ print("FastAPI app created")
 # CORS Restriction (Method 1)
 # =========================
 
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").split(",")
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").strip().split(",")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
@@ -90,7 +93,7 @@ app.add_middleware(
 
 class HTTPSRedirectMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
-        if os.getenv("FORCE_HTTPS", "0") == "1":
+        if os.getenv("FORCE_HTTPS", "0").strip() == "1":
             if request.url.scheme == "http":
                 url = request.url.replace(scheme="https")
                 return RedirectResponse(url=str(url))
@@ -102,7 +105,7 @@ app.add_middleware(HTTPSRedirectMiddleware)
 # Simple Rate Limiter (10 req/min) for login/signup
 # =========================
 
-RATE_LIMIT = 50
+RATE_LIMIT = 100
 RATE_PERIOD = 60  # seconds
 rate_limiters = defaultdict(lambda: deque())
 
@@ -126,6 +129,108 @@ def generic_error_response():
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         detail="An internal error occurred. Please try again later."
     )
+
+# =========================
+# Caching and Performance Optimizations
+# =========================
+
+@lru_cache(maxsize=128)
+def get_cached_user(user_id: int, db: Session) -> Optional[models.User]:
+    """Cache frequently accessed user data"""
+    return db.query(models.User).filter(models.User.id == user_id).first()
+
+@lru_cache(maxsize=128)
+def get_cached_class(class_id: int, db: Session) -> Optional[models.Class]:
+    """Cache frequently accessed class data"""
+    return db.query(models.Class).filter(models.Class.id == class_id).first()
+
+# =========================
+# Async Database Operations
+# =========================
+
+async def async_get_a_user(user_id: str, db: Session) -> Optional[models.User]:
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(
+        thread_pool,
+        lambda: db.query(models.User).filter(models.User.user_id == user_id).first()
+    )
+
+async def async_get_a_class(class_id: str, db: Session) -> Optional[models.Class]:
+    """Async wrapper to get only a single class using threads"""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(
+        thread_pool,
+        lambda: db.query(models.Class).filter(models.Class.id == class_id).first()
+    )
+
+async def async_get_user_by_email(email: str, db: Session) -> Optional[models.User]:
+    """Async wrapper for database user lookup"""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(
+        thread_pool, 
+        lambda: db.query(models.User).filter(models.User.email == email).first()
+    )
+
+async def async_get_user_submissions(user_id: int, db: Session) -> List[models.Submission]:
+    """Async wrapper for getting user submissions"""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(
+        thread_pool,
+        lambda: db.query(models.Submission).filter(models.Submission.user_id == user_id).all()
+    )
+
+async def async_get_class_submissions(class_id: str, db: Session) -> Optional[List[models.Submission]]:
+    """Async wrapper to get all of the class' submissions"""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(
+        thread_pool,
+        lambda: db.query(models.Submission).filter(models.Submission.class_id == class_id).all()
+    )
+
+async def async_get_class_assignments(class_id: int, db: Session) -> List[models.Assignment]:
+    """Async wrapper for getting class assignments"""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(
+        thread_pool,
+        lambda: db.query(models.Assignment).filter(models.Assignment.class_id == class_id).all()
+    )
+
+async def async_get_professor_teaching_classes(user_id: str, db: Session) -> Optional[List[models.Class]]:
+    """Async wrapper for getting all of professor's classes"""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(
+        thread_pool,
+        lambda: db.query(models.Class)
+                  .join(models.Class.professors)
+                  .filter(models.User.user_id == user_id).all()
+    )
+
+async def async_get_student_enrolling_classes(user_id: str, db: Session) -> Optional[List[models.Class]]:
+    """Async wrapper to getting all of student's enrolling classes"""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(
+        thread_pool,
+        lambda: db.query(models.Class)
+                  .join(models.Class.students)
+                  .filter(models.User.user_id == user_id).all()
+    )
+
+async def async_get_all_classes(db: Session) -> Optional[List[models.Class]]:
+    """Async wrapper to get all the classes using threads"""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(
+        thread_pool,
+        lambda: db.query(models.Class).all()
+    )
+
+async def async_get_class_code(code: str, db: Session) -> Optional[str]:
+    """Async wrapper to get only the class code using threads"""
+    loop = asyncio.get_event_loop()
+    result = await loop.run_in_executor(
+        thread_pool,
+        lambda: db.query(models.Class.code).filter(models.Class.code == code).scalar()
+    )
+    return result
 
 # Create database tables if they do not exist
 # print("Attempting to create database tables...")
@@ -171,7 +276,9 @@ async def get_current_user(request: Request, token: str = Depends(oauth2_scheme)
         token_data = schemas.TokenData(email=email)
     except JWTError:
         raise credentials_exception
-    user = db.query(models.User).filter(models.User.email == token_data.email).first()
+    
+    # Use async user lookup
+    user = await async_get_user_by_email(token_data.email, db)
     if user is None:
         raise credentials_exception
     return user
@@ -192,12 +299,16 @@ async def signup(user: schemas.UserCreate, request: Request, db: Session = Depen
     if len(user.password) < 8:
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters long.")
     try:
-        db_user = db.query(models.User).filter(models.User.email == user.email).first()
+        # Use async user lookup
+        db_user = await async_get_user_by_email(user.email, db)
         if db_user:
             raise HTTPException(status_code=400, detail="Email already registered")
+        
+        # Check user_id uniqueness
         db_user_id = db.query(models.User).filter(models.User.user_id == user.user_id).first()
         if db_user_id:
             raise HTTPException(status_code=400, detail="User ID already registered")
+        
         hashed_password = get_password_hash(user.password)
         db_user = models.User(
             email=user.email,
@@ -232,7 +343,8 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
     # Rate limit
     rate_limiter(request)
     try:
-        user = db.query(models.User).filter(models.User.email == form_data.username).first()
+        # Use async user lookup
+        user = await async_get_user_by_email(form_data.username, db)
         if not user or not verify_password(form_data.password, user.hashed_password):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -283,8 +395,8 @@ async def create_class(
         )
     
     # Check if class code already exists
-    existing_class = db.query(models.Class).filter(models.Class.code == class_data.code).first()
-    if existing_class:
+    existing_class_code = await async_get_class_code(class_data.code, db)
+    if existing_class_code:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Class code already exists"
@@ -348,16 +460,7 @@ async def get_classes(
     else:
         # Students see both their enrolled classes and available classes
         # Get all classes
-        all_classes = db.query(models.Class).all()
-        
-        # Get enrolled classes
-        enrolled_classes = current_user.enrolled_classes
-        
-        # Get available classes (classes not enrolled in)
-        available_classes = [c for c in all_classes if c not in enrolled_classes]
-        
-        # Combine both lists
-        classes = enrolled_classes + available_classes
+        classes = await async_get_all_classes(db)
     
     # Convert SQLAlchemy models to dictionaries
     return [
@@ -392,7 +495,7 @@ async def enroll_in_class(
         )
     
     # Get the class
-    db_class = db.query(models.Class).filter(models.Class.id == class_id).first()
+    db_class = await async_get_a_class(class_id, db)
     if not db_class:
         raise HTTPException(status_code=404, detail="Class not found")
     
@@ -424,7 +527,7 @@ async def add_professor_to_class(
         )
     
     # Get the class
-    db_class = db.query(models.Class).filter(models.Class.id == class_id).first()
+    db_class = await async_get_a_class(class_id, db)
     if not db_class:
         raise HTTPException(status_code=404, detail="Class not found")
     
@@ -436,7 +539,7 @@ async def add_professor_to_class(
         )
     
     # Get the professor to add
-    professor = db.query(models.User).filter(models.User.user_id == professor_id).first()
+    professor = await async_get_a_user(professor_id, db)
     if not professor or not professor.is_professor:
         raise HTTPException(status_code=404, detail="Professor not found")
     
@@ -454,7 +557,7 @@ async def get_class_submissions(
 ):
     """Get all submissions for a class"""
     # Get the class
-    db_class = db.query(models.Class).filter(models.Class.id == class_id).first()
+    db_class = await async_get_a_class(class_id, db)
     if not db_class:
         raise HTTPException(status_code=404, detail="Class not found")
     
@@ -466,7 +569,7 @@ async def get_class_submissions(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You are not a professor of this class"
             )
-        submissions = db.query(models.Submission).filter(models.Submission.class_id == class_id).all()
+        submissions = await async_get_class_submissions(class_id, db)
     else:
         # Students can only see their own submissions
         if db_class not in current_user.enrolled_classes:
@@ -496,7 +599,7 @@ async def create_assignment(
         )
     
     # Check if class exists and user is a professor of the class
-    db_class = db.query(models.Class).filter(models.Class.id == class_id).first()
+    db_class = await async_get_a_class(class_id, db)
     if not db_class:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -604,6 +707,16 @@ async def get_assignment_submissions(
             detail="Assignment not found"
         )
     
+    # Create assignment data once to avoid redundancy
+    assignment_data = {
+        "id": db_assignment.id,
+        "name": db_assignment.name,
+        "description": db_assignment.description,
+        "class_id": db_assignment.class_id,
+        "created_at": db_assignment.created_at,
+        "updated_at": db_assignment.updated_at
+    }
+    
     # Get all submissions for the assignment with user information
     submissions = db.query(
         models.Submission,
@@ -644,14 +757,7 @@ async def get_assignment_submissions(
             "professor_feedback": submission.professor_feedback,
             "created_at": submission.created_at,
             "updated_at": submission.updated_at,
-            "assignment": {
-                "id": db_assignment.id,
-                "name": db_assignment.name,
-                "description": db_assignment.description,
-                "class_id": db_assignment.class_id,
-                "created_at": db_assignment.created_at,
-                "updated_at": db_assignment.updated_at
-            }
+            "assignment": assignment_data  # Use the pre-created assignment data
         })
     
     # Convert to list and sort by username
@@ -671,7 +777,8 @@ async def create_submission(
 ):
     """Create a new submission"""
     # Check if class exists and user is enrolled
-    db_class = db.query(models.Class).filter(models.Class.id == int(class_id)).first()
+    db_class = await async_get_a_class(class_id, db) 
+    # db.query(models.Class).filter(models.Class.id == int(class_id)).first()
     if not db_class:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -768,31 +875,40 @@ async def get_user_submissions(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(database.get_db)
 ):
-    # If user is professor, return all submissions
+    # Optimized query to get submissions with assignment data in one call
     if current_user.is_professor:
-        submissions = db.query(models.Submission).all()
+        # For professors, get all submissions with assignment data
+        submissions_with_assignments = db.query(
+            models.Submission,
+            models.Assignment
+        ).join(
+            models.Assignment,
+            models.Submission.assignment_id == models.Assignment.id
+        ).all()
     else:
-        # If user is student, return only their submissions
-        submissions = db.query(models.Submission).filter(
+        # For students, get only their submissions with assignment data
+        submissions_with_assignments = db.query(
+            models.Submission,
+            models.Assignment
+        ).join(
+            models.Assignment,
+            models.Submission.assignment_id == models.Assignment.id
+        ).filter(
             models.Submission.user_id == current_user.user_id
         ).all()
-    # Return submissions in the correct format with assignment information
+    
+    # Format the response
     result = []
-    for submission in submissions:
-        # Get assignment information
-        assignment = db.query(models.Assignment).filter(
-            models.Assignment.id == submission.assignment_id
-        ).first()
-        assignment_data = None
-        if assignment:
-            assignment_data = {
-                "id": assignment.id,
-                "name": assignment.name,
-                "description": assignment.description,
-                "class_id": assignment.class_id,
-                "created_at": assignment.created_at,
-                "updated_at": assignment.updated_at
-            }
+    for submission, assignment in submissions_with_assignments:
+        assignment_data = {
+            "id": assignment.id,
+            "name": assignment.name,
+            "description": assignment.description,
+            "class_id": assignment.class_id,
+            "created_at": assignment.created_at,
+            "updated_at": assignment.updated_at
+        }
+        
         result.append({
             "id": submission.id,
             "user_id": submission.user_id,
@@ -808,6 +924,7 @@ async def get_user_submissions(
             "updated_at": submission.updated_at,
             "assignment": assignment_data
         })
+    
     return result
 
 @app.get("/submissions/{submission_id}", response_model=schemas.SubmissionResponse)
@@ -897,7 +1014,9 @@ async def get_custom_grading_prompt(
     return await get_sample_grading_prompt()
 
 @app.post("/prompts/", response_model=schemas.GradingPromptResponse)
-def create_prompt(prompt: schemas.GradingPromptBase, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
+def create_prompt(prompt: schemas.GradingPromptBase, 
+                  db: Session = Depends(database.get_db), 
+                  current_user: models.User = Depends(get_current_user)):
     # Always set created_by to the current user's ID for professor prompt creation/copy
     # Only set created_by=None if you have a special admin global prompt creation flow (not in this endpoint)
     db_prompt = models.GradingPrompt(
@@ -913,7 +1032,10 @@ def create_prompt(prompt: schemas.GradingPromptBase, db: Session = Depends(datab
 
 @app.get("/classes/{class_id}/prompt", response_model=schemas.GradingPromptResponse)
 def get_class_prompt(class_id: int, db: Session = Depends(database.get_db)):
-    prompt = db.query(models.GradingPrompt).filter(models.GradingPrompt.class_id == class_id).order_by(models.GradingPrompt.created_at.desc()).first()
+    prompt = db.query(models.GradingPrompt)\
+             .filter(models.GradingPrompt.class_id == class_id)\
+             .order_by(models.GradingPrompt.created_at.desc())\
+             .first()
     if not prompt:
         raise HTTPException(status_code=404, detail="No prompt set for this class.")
     return prompt
@@ -1005,8 +1127,9 @@ def get_all_prompts(db: Session = Depends(database.get_db), class_id: Optional[i
         query = query.filter(models.GradingPrompt.class_id == class_id)
     if created_by is not None:
         query = query.filter(models.GradingPrompt.created_by == created_by)
-    elif created_by is None:
-        query = query.filter(models.GradingPrompt.created_by == None)
+    elif created_by is None and class_id is None:
+        query = query.filter(models.GradingPrompt.created_by == None)\
+                     .filter(models.GradingPrompt.class_id == None)
     return query.order_by(models.GradingPrompt.created_at.desc()).all()
 
 @app.post("/prompts/", response_model=schemas.GradingPromptResponse)
@@ -1226,4 +1349,171 @@ async def delete_assignment(
 # =========================
 # Submission Endpoints
 # =========================
+
+@app.get("/classes/{class_id}/all-assignments-submissions", response_model=List[schemas.GroupedSubmissionResponse])
+async def get_all_assignments_submissions_for_class(
+    class_id: int,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(database.get_db)
+):
+    """Get all submissions for all assignments in a class in a single optimized call"""
+    if not current_user.is_professor:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only professors can view all submissions"
+        )
+    
+    # Check if class exists and user is a professor of the class
+    db_class = await async_get_a_class(class_id, db)
+    if not db_class:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Class not found"
+        )
+    
+    if current_user not in db_class.professors:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not a professor of this class"
+        )
+    
+    # Get all assignments for the class
+    assignments = await async_get_class_assignments(class_id, db)
+    
+    # Create a mapping of assignment_id to assignment data
+    assignment_map = {
+        assignment.id: {
+            "id": assignment.id,
+            "name": assignment.name,
+            "description": assignment.description,
+            "class_id": assignment.class_id,
+            "created_at": assignment.created_at,
+            "updated_at": assignment.updated_at
+        }
+        for assignment in assignments
+    }
+    
+    # Get all submissions for all assignments in the class with user information
+    submissions = db.query(
+        models.Submission,
+        models.User
+    ).join(
+        models.User,
+        models.Submission.user_id == models.User.user_id
+    ).filter(
+        models.Submission.class_id == class_id
+    ).order_by(
+        models.Submission.assignment_id,
+        models.User.name,
+        models.Submission.created_at.desc()
+    ).all()
+    
+    # Group submissions by assignment and user
+    result = {}
+    for submission, user in submissions:
+        assignment_id = submission.assignment_id
+        
+        if assignment_id not in result:
+            result[assignment_id] = []
+        
+        # Find or create user entry for this assignment
+        user_entry = None
+        for entry in result[assignment_id]:
+            if entry["user_id"] == user.user_id:
+                user_entry = entry
+                break
+        
+        if user_entry is None:
+            user_entry = {
+                "user_id": user.user_id,
+                "username": user.name,
+                "submission_count": 0,
+                "submissions": []
+            }
+            result[assignment_id].append(user_entry)
+        
+        user_entry["submission_count"] += 1
+        user_entry["submissions"].append({
+            "id": submission.id,
+            "user_id": submission.user_id,
+            "assignment_id": submission.assignment_id,
+            "class_id": submission.class_id,
+            "code": submission.code,
+            "ai_grade": submission.ai_grade,
+            "professor_grade": submission.professor_grade,
+            "final_grade": submission.final_grade,
+            "ai_feedback": submission.ai_feedback,
+            "professor_feedback": submission.professor_feedback,
+            "created_at": submission.created_at,
+            "updated_at": submission.updated_at,
+            "assignment": assignment_map.get(assignment_id, {})
+        })
+    
+    # Convert to list format and sort by username for each assignment
+    final_result = []
+    for assignment_id, user_submissions in result.items():
+        user_submissions.sort(key=lambda x: x["username"])
+        final_result.extend(user_submissions)
+    
+    return final_result
+
+@app.get("/submissions/recent-updates")
+async def get_recent_submission_updates(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(database.get_db)
+):
+    """Get submissions that were updated in the last 5 minutes for real-time notifications"""
+    try:
+        # Get submissions updated in the last 5 minutes
+        five_minutes_ago = datetime.utcnow() - timedelta(minutes=5)
+        
+        if current_user.is_professor:
+            # Professors see all recent updates
+            recent_submissions = db.query(models.Submission).filter(
+                models.Submission.updated_at >= five_minutes_ago
+            ).all()
+        else:
+            # Students see only their recent updates
+            recent_submissions = db.query(models.Submission).filter(
+                models.Submission.user_id == current_user.user_id,
+                models.Submission.updated_at >= five_minutes_ago
+            ).all()
+        
+        # Convert to response format
+        result = []
+        for submission in recent_submissions:
+            # Get assignment info
+            assignment = db.query(models.Assignment).filter(
+                models.Assignment.id == submission.assignment_id
+            ).first()
+            
+            result.append({
+                "id": submission.id,
+                "user_id": submission.user_id,
+                "assignment_id": submission.assignment_id,
+                "class_id": submission.class_id,
+                "ai_grade": submission.ai_grade,
+                "professor_grade": submission.professor_grade,
+                "final_grade": submission.final_grade,
+                "ai_feedback": submission.ai_feedback,
+                "professor_feedback": submission.professor_feedback,
+                "created_at": submission.created_at,
+                "updated_at": submission.updated_at,
+                "assignment": {
+                    "id": assignment.id,
+                    "name": assignment.name,
+                    "description": assignment.description,
+                    "class_id": assignment.class_id,
+                    "created_at": assignment.created_at,
+                    "updated_at": assignment.updated_at
+                } if assignment else None
+            })
+        
+        return result
+    except Exception as e:
+        logger.error(f"Error fetching recent updates: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to fetch recent updates"
+        )
 

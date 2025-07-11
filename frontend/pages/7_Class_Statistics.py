@@ -28,7 +28,7 @@ env_path = Path(__file__).resolve().parent.parent / '.env'
 # Load environment variables from .env file
 load_dotenv(dotenv_path=env_path)
 
-API_URL = os.getenv('API_URL', 'http://localhost:8000')
+API_URL = os.getenv('API_URL', 'http://localhost:8000').strip()
 
 # =========================
 # Page Configuration and Sidebar
@@ -134,13 +134,17 @@ st.markdown('</div>', unsafe_allow_html=True)
 # Sidebar navigation for professors
 if st.session_state.user.get('is_professor'):
     with st.sidebar:
-        st.title('Professor Menu')
-        st.page_link('pages/2_Professor_View.py', label='Professor View', icon='👨‍🏫')
-        st.page_link('pages/5_Prompt_Management.py', label='Prompt Management', icon='📝')
-        st.page_link('pages/7_Class_Statistics.py', label='Class Statistics', icon='📈')
+        st.title("👨‍🏫 Professor Menu")
+        st.page_link('pages/2_Professor_View.py', label='Professor View', icon='📝')
+        st.page_link('pages/5_Prompt_Management.py', label='Prompt Management', icon='🧠')
         st.page_link('pages/6_Assignment_Management.py', label='Assignment Management', icon='🗂️')
-        st.page_link('pages/create_class.py', label='Create Class', icon='➕')
-        st.page_link('login.py', label='Logout', icon='🚪') 
+        st.page_link('pages/create_class.py', label='Create a New Class', icon='➕')
+        st.page_link('pages/7_Class_Statistics.py', label='Class Statistics', icon='📊')
+        st.markdown("---")
+        if st.button("Logout", use_container_width=True):
+            for key in list(st.session_state.keys()):
+                del st.session_state[key]
+            st.switch_page("login.py")
 
 # =========================
 # Helper Functions

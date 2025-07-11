@@ -1,0 +1,47 @@
+substitutions:
+  _PROJECT_ID: 'grading-project-463816'
+  _REGION: 'us-central1'
+  _REPOSITORY: 'grading-backend' # The name of your Artifact Registry repo
+  _IMAGE_NAME: 'grading-backend' # The name for your docker image
+
+steps:
+  # 1. Build the Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    id: Build
+    args:
+      - 'build'
+      - '--no-cache'
+      - '-t'
+      - '${_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_REPOSITORY}/${_IMAGE_NAME}:latest'
+      - '.'
+
+  # 2. Push the Docker image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    id: Push
+    args:
+      - 'push'
+      - '${_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_REPOSITORY}/${_IMAGE_NAME}:latest'
+
+  # 3. Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: Deploy
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'grading-backend'
+      - '--image=${_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_REPOSITORY}/${_IMAGE_NAME}:latest' # <-- Updated image path
+      - '--platform=managed'
+      - '--region=${_REGION}'
+      - '--allow-unauthenticated'
+      - '--set-env-vars=NODE_ENV=production,ALLOWED_ORIGINS=*,POSTGRES_HOST=/cloudsql/${_PROJECT_ID}:${_REGION}:grading-deploying'
+      - '--set-secrets=POSTGRES_DB=postgres_db:latest,POSTGRES_USER=postgres_user:latest,POSTGRES_PORT=postgres_port:latest,JWT_ALGORITHM=jwt_algorithm:latest,SECRET_KEY=secret-key:latest,POSTGRES_PASSWORD=postgres-password:latest,AI_API_KEY=ai_api_key:latest,AI_MODEL=ai_model:latest,AI_API_ENDPOINT=ai_api_endpoint:latest'
+      - '--add-cloudsql-instances=${_PROJECT_ID}:${_REGION}:grading-deploying'
+      - '--memory=512Mi'
+      - '--cpu=1'
+      - '--min-instances=0'
+      - '--max-instances=2'
+
+options:
+  machineType: 'E2_MEDIUM'
+timeout: '1200s'

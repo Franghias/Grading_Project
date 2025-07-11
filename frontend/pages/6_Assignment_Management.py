@@ -20,7 +20,7 @@ env_path = Path(__file__).resolve().parent.parent / '.env'
 # Load environment variables from .env file
 load_dotenv(dotenv_path=env_path)
 
-API_URL = os.getenv("API_URL", "http://localhost:8000")
+API_URL = os.getenv("API_URL", "http://localhost:8000").strip()
 
 # =========================
 # Page Configuration and Sidebar
@@ -32,26 +32,83 @@ st.set_page_config(
     layout="wide"
 )
 
-# Custom CSS for styling
+# =========================
+# Custom CSS Styling (Consistent with new theme)
+# =========================
 st.markdown("""
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        /* --- Animation Keyframes --- */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* --- Hide default sidebar --- */
         [data-testid="stSidebarNav"] {display: none;}
-        .assignment-card {
-            border: 1px solid #ddd;
+
+        /* --- Theme & Base Styles --- */
+        :root {
+            --primary-color: #4a9a9b;
+            --primary-hover-color: #3d8283;
+            --background-color: #f0f2f6;
+            --card-background-color: #ffffff;
+            --text-color: #262730;
+            --subtle-text-color: #5E5E5E;
+            --border-color: #e0e0e0;
+        }
+        .stApp {
+            background-color: var(--background-color);
+            font-family: 'Inter', sans-serif;
+            color: var(--text-color);
+        }
+        .main .block-container {
+            padding: 2rem;
+            animation: fadeIn 0.5s ease-in-out forwards;
+        }
+
+        /* --- Header Styling --- */
+        .st-emotion-cache-10trblm { /* This targets st.title */
+            color: var(--primary-color);
+            padding-bottom: 1rem;
+        }
+        h2, h3 { /* This targets st.subheader and st.header */
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 0.5rem;
+        }
+
+        /* --- Custom Card Styling for Assignments --- */
+        .st-emotion-cache-16txtl3 { /* This targets st.container */
+            background-color: var(--card-background-color);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            padding: 1rem 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        /* --- Button Styling --- */
+        .stButton > button {
             border-radius: 8px;
-            padding: 16px;
-            margin: 8px 0;
+            padding: 0.6rem 1.2rem;
+            font-weight: 600;
+            transition: all 0.2s ease-in-out;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+        }
+        .stButton > button:hover {
+            transform: translateY(-2px);
+            background-color: var(--primary-hover-color);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        /* --- Input Styling --- */
+        .stTextInput > div > div > input, .stTextArea > div > textarea {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
             background-color: #f9f9f9;
-        }
-        .assignment-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
-        }
-        .assignment-actions {
-            display: flex;
-            gap: 8px;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -66,14 +123,17 @@ if 'user' not in st.session_state:
 if 'user' in st.session_state:
     if st.session_state.user.get('is_professor'):
         with st.sidebar:
-            st.title('Professor Menu')
-            st.page_link('pages/2_Professor_View.py', label='Professor View', icon='👨‍🏫')
-            st.page_link('pages/5_Prompt_Management.py', label='Prompt Management', icon='📝')
-            st.page_link('pages/7_Class_Statistics.py', label='Class Statistics', icon='📈')
+            st.title("👨‍🏫 Professor Menu")
+            st.page_link('pages/2_Professor_View.py', label='Professor View', icon='📝')
+            st.page_link('pages/5_Prompt_Management.py', label='Prompt Management', icon='🧠')
             st.page_link('pages/6_Assignment_Management.py', label='Assignment Management', icon='🗂️')
-            st.page_link('pages/create_class.py', label='Create Class', icon='➕')
-            st.page_link('login.py', label='Logout', icon='🚪') 
+            st.page_link('pages/create_class.py', label='Create a New Class', icon='➕')
+            st.page_link('pages/7_Class_Statistics.py', label='Class Statistics', icon='📊')
             st.markdown("---")
+            if st.button("Logout", use_container_width=True):
+                for key in list(st.session_state.keys()):
+                    del st.session_state[key]
+                st.switch_page("login.py")
     else:
         with st.sidebar:
             st.title('Student Menu')
@@ -122,7 +182,7 @@ with col1:
     class_options = {c['id']: f"{c['name']} ({c['code']})" for c in classes}
     selected_class_id = st.selectbox("Select a Class", options=list(class_options.keys()), format_func=lambda x: class_options[x])
 with col2:
-    if st.button("🔄 Refresh", type="secondary", help="Refresh assignments list"):
+    if st.button("🔄 Refresh", help="Refresh assignments list"):
         st.rerun()
 
 st.markdown("---")
@@ -157,10 +217,10 @@ with tab1:
                 
                 for assignment in assignments:
                     with st.container():
-                        col1, col2, col3 = st.columns([3, 1, 1])
+                        col1, col2, col3 = st.columns([4, 1, 1])
                         
                         with col1:
-                            st.subheader(f"📝 {assignment['name']}")
+                            st.subheader(f"{assignment['name']}")
                             if assignment.get('description'):
                                 st.write(assignment['description'])
                             else:
@@ -173,16 +233,14 @@ with tab1:
                                 st.rerun()
                         
                         with col3:
-                            if st.button(f"🗑️ Delete", key=f"delete_{assignment['id']}", type="secondary"):
+                            if st.button(f"🗑️ Delete", key=f"delete_{assignment['id']}"):
                                 st.session_state.deleting_assignment = assignment
                                 st.rerun()
-                        
-                        st.markdown("---")
                 
                 # Edit Assignment Modal
                 if 'editing_assignment' in st.session_state:
                     assignment = st.session_state.editing_assignment
-                    st.subheader(f"✏️ Edit Assignment: {assignment['name']}")
+                    st.header(f"✏️ Edit Assignment: {assignment['name']}")
                     
                     with st.form(f"edit_form_{assignment['id']}"):
                         edit_name = st.text_input("Assignment Name", value=assignment['name'], key=f"edit_name_{assignment['id']}")
@@ -197,7 +255,7 @@ with tab1:
                                     try:
                                         response = requests.put(
                                             f"{API_URL}/assignments/{assignment['id']}",
-                                            headers={"Authorization": f"Bearer {st.session_state.token}"},
+                                            headers={"Authorization": f"Bearer {st.session_state.token}", "Content-Type": "application/json"},
                                             json={"name": edit_name.strip(), "description": edit_description.strip()}
                                         )
                                         response.raise_for_status()
@@ -215,12 +273,12 @@ with tab1:
                 # Delete Assignment Confirmation
                 if 'deleting_assignment' in st.session_state:
                     assignment = st.session_state.deleting_assignment
-                    st.subheader(f"🗑️ Delete Assignment: {assignment['name']}")
+                    st.header(f"🗑️ Delete Assignment: {assignment['name']}")
                     st.warning(f"Are you sure you want to delete '{assignment['name']}'? This action cannot be undone.")
                     
                     col1, col2 = st.columns(2)
                     with col1:
-                        if st.button("✅ Yes, Delete", type="primary"):
+                        if st.button("✅ Yes, Delete"):
                             try:
                                 response = requests.delete(
                                     f"{API_URL}/assignments/{assignment['id']}",
@@ -259,14 +317,8 @@ with tab2:
             height=150
         )
         
-        col1, col2 = st.columns([1, 3])
-        with col1:
-            submitted = st.form_submit_button("🚀 Create Assignment", type="primary")
+        submitted = st.form_submit_button("🚀 Create Assignment")
         
-        with col2:
-            if st.form_submit_button("🗑️ Clear Form"):
-                st.rerun()
-
         if submitted:
             if not assignment_name.strip():
                 st.error("❌ Assignment name is required.")
@@ -274,7 +326,7 @@ with tab2:
                 try:
                     response = requests.post(
                         f"{API_URL}/classes/{selected_class_id}/assignments/",
-                        headers={"Authorization": f"Bearer {st.session_state.token}"},
+                        headers={"Authorization": f"Bearer {st.session_state.token}", "Content-Type": "application/json"},
                         json={
                             "name": assignment_name.strip(), 
                             "description": assignment_description.strip(), 
@@ -284,7 +336,6 @@ with tab2:
                     response.raise_for_status()
                     st.success("✅ Assignment created successfully!")
                     st.balloons()
-                    st.rerun()  # Refresh the page to show the new assignment
                 except requests.RequestException as e:
                     st.error(f"❌ Error creating assignment: {e}")
 
@@ -300,4 +351,4 @@ st.markdown("""
     • Provide clear descriptions with requirements and expectations<br>
     • You can edit assignments anytime, but deleting requires no existing submissions
 </div>
-""", unsafe_allow_html=True) 
+""", unsafe_allow_html=True)

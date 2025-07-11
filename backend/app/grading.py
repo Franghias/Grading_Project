@@ -204,8 +204,8 @@ def grade_code(code: str, description: str = None) -> tuple[float, str]:
         logger.info("Returning cached response")
         return cached_result
 
-    api_key = os.getenv("AI_API_KEY")
-    endpoint = os.getenv("AI_API_ENDPOINT")
+    api_key = os.getenv("AI_API_KEY", "").strip()
+    endpoint = os.getenv("AI_API_ENDPOINT", "").strip()
     
     if not api_key or not endpoint:
         logger.error("Missing API configuration")
@@ -220,7 +220,7 @@ def grade_code(code: str, description: str = None) -> tuple[float, str]:
         logger.info("Sending request to AI API...")
         # print("AI_MODEL:", os.getenv("AI_MODEL"))
         request_payload = {
-            "model": os.getenv("AI_MODEL"),
+            "model": os.getenv("AI_MODEL", "").strip(),
             "messages": [
                 {"role": "system", "content": "You are a Computer Science Professor Assistant grading Python code. You must respond in valid JSON format only."},
                 {"role": "user", "content": prompt}
@@ -309,8 +309,8 @@ def grade_code_with_prompt(code: str, prompt: str) -> tuple[float, str]:
         logger.error(f"Invalid code input: {error_msg}")
         return 0.0, f"Error: {error_msg}"
 
-    api_key = os.getenv("AI_API_KEY")
-    endpoint = os.getenv("AI_API_ENDPOINT")
+    api_key = os.getenv("AI_API_KEY", "").strip()
+    endpoint = os.getenv("AI_API_ENDPOINT", "").strip()
     if not api_key or not endpoint:
         logger.error("Missing API configuration")
         return 0.0, "Error: The AI API configuration is missing"
@@ -320,7 +320,7 @@ def grade_code_with_prompt(code: str, prompt: str) -> tuple[float, str]:
     try:
         logger.info("Sending request to AI API with custom prompt...")
         request_payload = {
-            "model": os.getenv("AI_MODEL"),
+            "model": os.getenv("AI_MODEL", "").strip(),
             "messages": [
                 {"role": "system", "content": "You are a Computer Science Professor Assistant grading Python code. You must respond in valid JSON format only."},
                 {"role": "user", "content": prompt}

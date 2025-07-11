@@ -11,7 +11,17 @@
 #
 # WARNING: Using a non-superuser may cause migrations or certain operations to fail.
 #
-# To enforce this, the code below checks the username and warns if not 'postgres'.
+# To enforce this, the code below checks the username and warns if not 'postgres
+
+# Environment Variable Examples:
+#
+# For local development:
+#   POSTGRES_HOST=localhost
+#   POSTGRES_PORT=5432
+#
+# For Google Cloud SQL (in Cloud Run, App Engine, etc.):
+#   POSTGRES_HOST=/cloudsql/your-project-id:your-region:your-instance-name
+#   # POSTGRES_PORT is not used in this case
 
 import sys
 import os
@@ -57,14 +67,38 @@ logger = logging.getLogger(__name__)
 # =========================
 
 # Read database connection parameters from environment variables
-POSTGRES_USER = os.getenv("POSTGRES_USER", "postgres")
-POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "postgres")
-POSTGRES_DB = os.getenv("POSTGRES_DB", "grading_db")
-POSTGRES_HOST = os.getenv("POSTGRES_HOST", "localhost")
-POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5432")
+POSTGRES_USER = os.getenv("POSTGRES_USER", "postgres").strip()
+POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "postgres").strip()
+POSTGRES_DB = os.getenv("POSTGRES_DB", "grading_db").strip()
+POSTGRES_HOST = os.getenv("POSTGRES_HOST", "localhost").strip()
+POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5432").strip()
 
 # Construct database URL with explicit authentication parameters
-DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}?sslmode=disable"
+# DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}?sslmode=disable"
+
+# Conditionally construct the DATABASE_URL
+if POSTGRES_HOST.startswith('/cloudsql'):
+    # For Cloud SQL sockets, the instance name is passed as a 'host' query parameter.
+    # The host part of the URL (after the @) is left blank.
+    DATABASE_URL = (
+        f"postgresql+psycopg2://{POSTGRES_USER}:{POSTGRES_PASSWORD}@"
+        f"/{POSTGRES_DB}?host={POSTGRES_HOST}"
+    )
+else:
+    # For local development, the host and port are in the main URL.
+    DATABASE_URL = (
+        f"postgresql+psycopg2://{POSTGRES_USER}:{POSTGRES_PASSWORD}@"
+        f"{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
+    )
+
+# Disable SSL (as per your original code)
+if '?' in DATABASE_URL:
+    DATABASE_URL += "&sslmode=disable"
+else:
+    DATABASE_URL += "?sslmode=disable"
+
+# This is the debugging line, you can leave it for now
+print(f"--- Attempting to connect with URL: {DATABASE_URL} ---")
 
 # logger.info(f"Attempting to connect to database at {POSTGRES_HOST}:{POSTGRES_PORT}")
 # logger.info(f"Using database: {POSTGRES_DB}")

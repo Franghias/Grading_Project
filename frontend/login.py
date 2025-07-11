@@ -3,171 +3,206 @@ import requests
 import os
 from dotenv import load_dotenv
 import time
+import sys
+from pathlib import Path
 
 # Load environment variables
 load_dotenv()
-API_URL = os.getenv('API_URL', 'http://localhost:3000')
+API_URL = os.getenv('API_URL', 'http://localhost:8000').strip()
 
-# Page configuration
+# --- PAGE CONFIGURATION ---
 st.set_page_config(
-    page_title="CS 1111 Login",
-    page_icon="🔐",
+    page_title="Grading System Login",
+    page_icon="🎓",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
-# Custom CSS
+# --- UNIFIED CSS WITH TRANSITIONS ---
 st.markdown("""
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        /* Theme variables */
+        /* --- Animation Keyframes --- */
+        @keyframes fadeInScaleUp {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        /* --- Hide Streamlit Elements --- */
+        [data-testid="stHeader"], [data-testid="stSidebarNav"] {
+            display: none;
+        }
+        .main .block-container {
+            padding-top: 1rem;
+            padding-bottom: 1rem;
+        }
+
+        /* --- Theme & Styles --- */
         :root {
-            --bg-color: #f7f3e3;
-            --text-color: #1a202c;
-            --card-bg: #f7fafc;
-            --primary-bg: #4a9a9b;
-            --primary-hover: #3d8283;
-            --border-color: #e2e8f0;
-            --input-bg: #ffffff;
-            --input-border: #cbd5e0;
-            --success-bg: #e6fffa;
-            --success-text: #2d3748;
-            --error-bg: #fee2e2;
-            --error-text: #702020;
+            --primary-color: #4a9a9b; /* Teal */
+            --primary-hover-color: #3d8283; /* Darker Teal */
+            --background-color: #f0f2f6; /* Light Gray */
+            --card-background-color: #ffffff; /* White */
+            --text-color: #262730; /* Dark Gray */
+            --subtle-text-color: #5E5E5E;
+            --border-color: #e0e0e0;
+        }
+        .stApp {
+            background-color: var(--background-color);
+            font-family: 'Inter', sans-serif;
         }
 
-        /* Apply theme */
-        html, body, .stApp {
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            font-size: 16px;
-            line-height: 1.5;
-        }
-
-        /* Header styling */
-        .header {
-            background-color: #4a9a9b;
-            padding: 2rem;
-            text-align: center;
-            position: relative;
-            overflow: hidden;
-            min-height: 200px;
-            color: #ffffff;
-        }
-
-        /* Card styling */
-        .card {
-            background-color: var(--card-bg);
+        /* --- Main Login Container with Transition --- */
+        .login-container {
+            background-color: var(--card-background-color);
+            padding: 2.5rem;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
             border: 1px solid var(--border-color);
-            border-radius: 0.375rem;
-            padding: 1.5rem;
+            max-width: 450px;
+            margin: 4rem auto;
             text-align: center;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
+            animation: fadeInScaleUp 0.5s ease-in-out forwards; /* Added transition */
+        }
+        .login-container h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+        }
+        .login-container p {
+            color: var(--subtle-text-color);
+            margin-bottom: 2rem;
         }
 
-        /* Button styling */
-        .stButton > button {
-            background-color: var(--primary-bg);
-            color: white;
-            border-radius: 0.375rem;
-            padding: 0.5rem 1rem;
-            font-weight: 500;
-            transition: background-color 0.2s ease;
-        }
-
-        .stButton > button:hover {
-            background-color: var(--primary-hover);
-        }
-
-        /* Input styling */
+        /* --- Input and Button Styling with Transitions --- */
         .stTextInput > div > div > input {
-            background-color: var(--input-bg);
-            color: var(--text-color);
-            border: 1px solid var(--input-border);
-            border-radius: 0.375rem;
-            padding: 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            background-color: #f9f9f9;
+            transition: all 0.2s ease-in-out;
+        }
+        .stTextInput > div > div > input:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(74, 154, 155, 0.2);
         }
 
-        /* Success and error messages */
-        .success, .error {
-            padding: 1rem;
-            border-radius: 0.375rem;
-            margin-bottom: 1rem;
+        .stButton > button {
+            background-color: var(--primary-color);
+            color: white;
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            font-weight: 600;
+            width: 100%;
+            border: none;
+            transition: all 0.2s ease-in-out; /* Added transition */
         }
-
-        .success { background-color: var(--success-bg); color: var(--success-text); }
-        .error { background-color: var(--error-bg); color: var(--error-text); }
-
-        /*where we hide the default pages */
-        [data-testid="stSidebarNav"] {display: none;}
+        .stButton > button:hover {
+            background-color: var(--primary-hover-color);
+            transform: translateY(-2px); /* Added hover effect */
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1); /* Added shadow for depth */
+        }
+        
+        /* --- Signup Prompt --- */
+        .signup-prompt {
+            margin-top: 1.5rem;
+            color: var(--subtle-text-color);
+        }
+        
+        /* --- Spinner --- */
+        .stSpinner > div > div {
+            border-top-color: var(--primary-color);
+        }
     </style>
 """, unsafe_allow_html=True)
 
-# Header
-st.markdown('<div class="header">', unsafe_allow_html=True)
-st.markdown('<h1>CS 1111 Grading System</h1>', unsafe_allow_html=True)
-st.markdown('<p>Welcome back! Please login to continue</p>', unsafe_allow_html=True)
-st.markdown('</div>', unsafe_allow_html=True)
+# --- SESSION STATE INITIALIZATION ---
+if 'login_attempts' not in st.session_state:
+    st.session_state.login_attempts = 0
+if 'last_attempt_time' not in st.session_state:
+    st.session_state.last_attempt_time = 0
 
-# Main content
-st.markdown('<div class="container mx-auto px-4 py-8">', unsafe_allow_html=True)
+# --- LOGIN FORM LAYOUT ---
+col1, col2, col3 = st.columns([1, 1.5, 1])
 
-# Login form
-st.markdown('<div class="card">', unsafe_allow_html=True)
-st.markdown('<h2 class="text-xl font-medium mb-6">Login</h2>', unsafe_allow_html=True)
+with col2:
+    st.markdown('<div class="login-container">', unsafe_allow_html=True)
+    st.markdown('<h1>🎓 CS 1111 Login</h1>', unsafe_allow_html=True)
+    st.markdown('<p>Welcome back! Please sign in to continue.</p>', unsafe_allow_html=True)
 
-with st.form("login_form"):
-    email = st.text_input("Email", placeholder="Enter your email")
-    password = st.text_input("Password", type="password", placeholder="Enter your password")
-    submit_button = st.form_submit_button("Login")
+    # --- RATE LIMITING LOGIC ---
+    current_time = time.time()
+    if st.session_state.login_attempts >= 5 and current_time - st.session_state.last_attempt_time < 120:
+        remaining_time = int(120 - (current_time - st.session_state.last_attempt_time))
+        st.error(f"Too many attempts. Please wait {remaining_time} seconds.")
+        st.stop()
 
-    if submit_button:
-        if email and password:
-            try:
-                response = requests.post(
-                    f"{API_URL}/auth/login",
-                    data={
-                        "username": email,  # OAuth2 expects username field
-                        "password": password
-                    }
-                )
-                response.raise_for_status()
-                result = response.json()
-                
-                # Store token and user info in session state
-                st.session_state.token = result["access_token"]
-                st.session_state.user = result["user"]  # Store the complete user object including user_id
-                
-                st.success("Login successful!")
-                # Redirect based on user role
-                if result["user"]["is_professor"]:
-                    st.switch_page("pages/2_Professor_View.py")
-                else:
-                    st.switch_page("pages/3_Student_View.py")
-            except requests.RequestException as e:
-                st.error("Invalid email or password. Please try again.")
-        else:
-            st.error("Please fill in all fields")
+    # --- LOGIN FORM ---
+    with st.form("login_form"):
+        email = st.text_input(
+            "Email",
+            placeholder="e.g., user@example.com",
+            key="login_email"
+        )
+        password = st.text_input(
+            "Password",
+            type="password",
+            placeholder="Enter your password",
+            key="login_password"
+        )
+        submit_button = st.form_submit_button("Sign In")
 
-# Add a signup link with helpful message
-st.markdown("""
-    <div style="text-align: center; margin-top: 1rem;">
-        <p>Don't have an account?</p>
-    </div>
-""", unsafe_allow_html=True)
+        if submit_button:
+            if not email or not password:
+                st.error("Please enter both email and password.")
+            else:
+                st.session_state.login_attempts += 1
+                st.session_state.last_attempt_time = current_time
 
-if st.button("Sign up here"):
-    st.switch_page("pages/1_Signup.py")
+                with st.spinner("Authenticating..."):
+                    try:
+                        response = requests.post(
+                            f"{API_URL}/auth/login",
+                            data={"username": email, "password": password},
+                            timeout=10
+                        )
+                        response.raise_for_status()
 
-st.markdown('</div>', unsafe_allow_html=True)
+                        result = response.json()
+                        st.session_state.login_attempts = 0
+                        st.session_state.token = result.get("access_token")
+                        st.session_state.user = result.get("user")
+                        
+                        st.success("Login successful! Redirecting...")
+                        time.sleep(1)
 
-# Sidebar navigation for login/signup only
-if 'token' not in st.session_state:
-    with st.sidebar:
-        st.title('Navigation')
-        st.page_link('login.py', label='Login', icon='🔐')
-        st.page_link('pages/1_Signup.py', label='Sign Up', icon='📝') 
+                        if st.session_state.user.get("is_professor"):
+                            st.switch_page("pages/2_Professor_View.py")
+                        else:
+                            st.switch_page("pages/3_Student_View.py")
+
+                    except requests.Timeout:
+                        st.error("Connection timed out. Please try again.")
+                    except requests.HTTPError as e:
+                        if e.response.status_code == 401:
+                             st.error("Incorrect email or password.")
+                        else:
+                             st.error(f"An error occurred: Status {e.response.status_code}")
+                    except requests.RequestException:
+                        st.error("Failed to connect to the server. Please check your connection.")
+                    except Exception as e:
+                        st.error(f"An unexpected error occurred: {e}")
+
+    # --- SIGN-UP BUTTON ---
+    st.markdown('<p class="signup-prompt">Don\'t have an account?</p>', unsafe_allow_html=True)
+    if st.button("Sign up here"):
+        st.switch_page("pages/1_Signup.py")
+
+    st.markdown('</div>', unsafe_allow_html=True)

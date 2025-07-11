@@ -1,0 +1,64 @@
+# =========================
+# Grading Project - Complete Requirements
+# =========================
+
+# Backend Dependencies
+fastapi==0.110.0
+uvicorn[standard]==0.15.0
+sqlalchemy==1.4.23
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.5
+aiofiles==0.7.0
+email-validator==2.2.0
+psycopg2-binary==2.9.10
+bcrypt==4.0.1
+alembic==1.7.7
+
+# Frontend Dependencies
+streamlit>=1.31.0
+Pillow>=10.4.0
+numpy>=1.21.0
+pandas>=1.3.0
+protobuf>=3.20.0
+pydantic>=2.0.0
+matplotlib>=3.10.3
+plotly>=5.0.0
+seaborn>=0.11.0
+
+# Shared Dependencies
+requests>=2.27.0
+python-dotenv==0.19.0
+aiohttp>=3.8.0
+asyncio-throttle>=1.0.0
+cachetools>=5.0.0
+httpx>=0.24.1
+pydantic-settings>=2.0.0
+urllib3>=1.26.15
+
+# Performance and Async
+aiocache>=0.12.0
+jsonschema>=4.17.0
+python-dateutil>=2.8.2
+pytz>=2023.3
+
+# Security and Cryptography
+cryptography>=41.0.0
+
+# Logging and Monitoring
+structlog>=23.1.0
+rich>=13.3.0
+
+# Development and Testing
+pytest>=7.3.1
+pytest-asyncio>=0.21.0
+black>=23.3.0
+flake8>=6.0.0
+
+# Utilities
+click>=8.1.0
+tqdm>=4.65.0
+
+# GCP and Cloud Dependencies (for production deployment)
+google-cloud-secret-manager>=2.16.0
+google-cloud-logging>=3.5.0

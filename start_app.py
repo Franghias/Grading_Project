@@ -31,7 +31,7 @@ def start_application():
     # 2. Start Backend Server
     print("\n2. Starting backend server...")
     backend_process = subprocess.Popen(
-        "python run.py",
+        "python run_prod.py",
         shell=True,
         cwd=os.path.join(current_dir, "backend")
     )
