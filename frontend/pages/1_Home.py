@@ -154,7 +154,7 @@ if 'token' not in st.session_state:
 # =========================
 # Data Fetching and Caching
 # =========================
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=10)  # Reduced from 60 to 10 seconds for faster updates
 def get_all_classes(token):
     try:
         response = requests.get(f"{API_URL}/classes/", headers={"Authorization": f"Bearer {token}"})
@@ -240,6 +240,7 @@ if 'selected_class' in st.session_state and st.session_state.selected_class:
         st.markdown(f"### 📚 Class Information: {selected_class['name']}")
     with col2:
         if st.button("🔄 Refresh Data", help="Refresh all class data and submissions"):
+            get_all_classes.clear()
             get_user_submissions_for_class_cached.clear()
             st.rerun()
 

@@ -87,31 +87,34 @@ st.markdown("""
 # =========================
 # Data Fetching Functions
 # =========================
+from utils.async_helpers import make_authenticated_request, refresh_token_if_needed
+
 @st.cache_data(ttl=30)
 def get_submissions(user_id=None, class_id=None):
     try:
-        headers = {"Authorization": f"Bearer {st.session_state.token}"}
-        endpoint = f"{API_URL}/submissions/"
-        if class_id and st.session_state.user.get('is_professor'):
-             endpoint = f"{API_URL}/submissions/class/{class_id}"
+        # Use the new authenticated request function with automatic token refresh
+        if class_id:
+            endpoint = f"classes/{class_id}/submissions"
+        else:
+            endpoint = "submissions/"
 
-        response = requests.get(endpoint, headers=headers, timeout=10)
-        response.raise_for_status()
-        submissions = response.json()
+        submissions = make_authenticated_request('GET', endpoint)
+        if submissions is None:
+            return []
 
+        # Filter by user_id if provided
         if user_id:
             return [s for s in submissions if s.get('user_id') == user_id]
         return submissions
-    except requests.RequestException:
+    except Exception:
         return []
 
 @st.cache_data(ttl=60)
 def get_all_classes():
     try:
-        response = requests.get(f"{API_URL}/classes/", headers={"Authorization": f"Bearer {st.session_state.token}"})
-        response.raise_for_status()
-        return response.json()
-    except requests.RequestException:
+        classes = make_authenticated_request('GET', 'classes/')
+        return classes if classes is not None else []
+    except Exception:
         return []
 
 # =========================
@@ -212,26 +215,93 @@ else:
                     if assignment_subs:
                         with st.expander(f"Submissions for: {assignment['name']}", expanded=True):
                             for sub in assignment_subs:
-                                st.markdown(f"**Final Grade:** {sub.get('professor_grade', 'Pending')}")
+                                # Use the same grade selection logic for consistency
+                                final_grade = sub.get('final_grade')
+                                professor_grade = sub.get('professor_grade')
+                                
+                                if final_grade is not None:
+                                    grade = final_grade
+                                elif professor_grade is not None:
+                                    grade = professor_grade
+                                else:
+                                    grade = 'Pending'
+                                
+                                st.markdown(f"**Final Grade:** {grade}")
                                 st.markdown(f"**Feedback:** *{sub.get('professor_feedback', 'N/A')}*")
                                 st.code(sub.get('code', ''), language="python")
                                 st.markdown("---")
+                    else:
+                        st.info(f"No submissions found for assignment: {assignment['name']}")
     else: # My Statistics View
         st.markdown("### My Statistics Overview")
-        all_my_submissions = get_submissions(user_id=st.session_state.user['user_id'])
-        graded_subs = [s for s in all_my_submissions if s.get('professor_grade') is not None]
+        
+        # Add class selection for statistics
+        selected_class_stats = st.selectbox(
+            "Select a class for detailed statistics:", 
+            options=[None] + student_classes, 
+            format_func=lambda c: "All Classes (Overall)" if c is None else f"{c['name']} ({c['code']})",
+            index=0
+        )
+        
+        if selected_class_stats is None:
+            # Overall statistics across all classes
+            all_my_submissions = get_submissions(user_id=st.session_state.user['user_id'])
+        else:
+            # Statistics for specific class
+            all_my_submissions = get_submissions(user_id=st.session_state.user['user_id'], class_id=selected_class_stats['id'])
+        
+        # Fix: Use final_grade or professor_grade, but handle 0 correctly
+        graded_subs = []
+        for s in all_my_submissions:
+            final_grade = s.get('final_grade')
+            professor_grade = s.get('professor_grade')
+            
+            # Determine which grade to use (prioritize final_grade, then professor_grade)
+            if final_grade is not None:
+                grade = final_grade
+            elif professor_grade is not None:
+                grade = professor_grade
+            else:
+                grade = None
+                
+            if grade is not None:  # This correctly checks for None, allowing 0 grades
+                graded_subs.append(s)
 
         if not graded_subs:
-            st.info("No graded submissions available to generate statistics.")
+            if selected_class_stats is None:
+                st.info("No graded submissions available to generate statistics.")
+            else:
+                st.info(f"No graded submissions available for {selected_class_stats['name']}.")
         else:
-            student_data = [{'assignment_name': s.get('assignment', {}).get('name', 'Unknown'), 'professor_grade': s.get('professor_grade')} for s in graded_subs]
+            student_data = []
+            for s in graded_subs:
+                # Use the same grade selection logic for consistency
+                final_grade = s.get('final_grade')
+                professor_grade = s.get('professor_grade')
+                
+                if final_grade is not None:
+                    grade = final_grade
+                elif professor_grade is not None:
+                    grade = professor_grade
+                else:
+                    grade = None
+                    
+                student_data.append({
+                    'assignment_name': s.get('assignment', {}).get('name', 'Unknown'), 
+                    'grade': grade,
+                    'class_name': next((c['name'] for c in student_classes if c['id'] == s.get('class_id')), 'Unknown')
+                })
             df_student = pd.DataFrame(student_data)
 
             # --- Student Statistical Summary ---
-            st.markdown("#### Your Overall Performance")
-            mean_grade = df_student['professor_grade'].mean()
-            median_grade = df_student['professor_grade'].median()
-            mode_grade = df_student['professor_grade'].mode()
+            if selected_class_stats is None:
+                st.markdown("#### Your Overall Performance (All Classes)")
+            else:
+                st.markdown(f"#### Your Performance in {selected_class_stats['name']}")
+            
+            mean_grade = df_student['grade'].mean()
+            median_grade = df_student['grade'].median()
+            mode_grade = df_student['grade'].mode()
 
             stat_col1, stat_col2, stat_col3 = st.columns(3)
             stat_col1.metric("Your Mean Grade", f"{mean_grade:.2f}")
@@ -239,33 +309,120 @@ else:
             stat_col3.metric("Your Mode Grade", f"{mode_grade[0] if not mode_grade.empty else 'N/A'}")
 
             # --- Student Charts ---
-            tab1, tab2 = st.tabs(["📊 Grade Comparison", "📈 Grade Spread"])
+            if selected_class_stats is None:
+                tab1, tab2, tab3 = st.tabs(["📊 Grade Comparison", "📈 Grade Spread", "🎓 Performance by Class"])
+            else:
+                tab1, tab2 = st.tabs(["📊 Grade Comparison", "📈 Grade Spread"])
+            
             with tab1:
-                student_avg = df_student.groupby('assignment_name')['professor_grade'].mean().reset_index()
-                student_avg['Type'] = 'Your Average'
-                class_avg_data = []
-                for s_class in student_classes:
-                    class_submissions = get_submissions(class_id=s_class['id'])
-                    class_graded_data = [{'assignment_name': s.get('assignment', {}).get('name', 'Unknown'), 'professor_grade': s.get('professor_grade')} for s in class_submissions if s.get('professor_grade') is not None]
+                if selected_class_stats is None:
+                    # Overall comparison across all classes
+                    student_avg = df_student.groupby('assignment_name')['grade'].mean().reset_index()
+                    student_avg['Type'] = 'Your Average'
+                    class_avg_data = []
+                    for s_class in student_classes:
+                        class_submissions = get_submissions(class_id=s_class['id'])
+                        # Use the same grade selection logic for class data
+                        class_graded_data = []
+                        for s in class_submissions:
+                            final_grade = s.get('final_grade')
+                            professor_grade = s.get('professor_grade')
+                            
+                            if final_grade is not None:
+                                grade = final_grade
+                            elif professor_grade is not None:
+                                grade = professor_grade
+                            else:
+                                grade = None
+                                
+                            if grade is not None:
+                                class_graded_data.append({
+                                    'assignment_name': s.get('assignment', {}).get('name', 'Unknown'), 
+                                    'grade': grade
+                                })
+                        
+                        if class_graded_data:
+                            class_avg_data.extend(class_graded_data)
+                    
+                    if class_avg_data:
+                        df_class_all = pd.DataFrame(class_avg_data).groupby('assignment_name')['grade'].mean().reset_index()
+                        df_class_all['Type'] = 'Class Average'
+                        df_combined = pd.concat([student_avg, df_class_all])
+                        df_combined.rename(columns={'grade': 'Grade'}, inplace=True)
+                        fig = px.bar(
+                            df_combined, x='assignment_name', y='Grade', color='Type', barmode='group',
+                            title='Your Average Grade vs. Class Average (All Classes)',
+                            color_discrete_map={'Your Average': '#4a9a9b', 'Class Average': '#aecdc2'}
+                        )
+                        fig.update_layout(xaxis_title="Assignment", yaxis_title="Average Grade", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+                        st.plotly_chart(fig, use_container_width=True)
+                else:
+                    # Single class comparison
+                    student_avg = df_student.groupby('assignment_name')['grade'].mean().reset_index()
+                    student_avg['Type'] = 'Your Average'
+                    class_submissions = get_submissions(class_id=selected_class_stats['id'])
+                    class_graded_data = []
+                    for s in class_submissions:
+                        final_grade = s.get('final_grade')
+                        professor_grade = s.get('professor_grade')
+                        
+                        if final_grade is not None:
+                            grade = final_grade
+                        elif professor_grade is not None:
+                            grade = professor_grade
+                        else:
+                            grade = None
+                            
+                        if grade is not None:
+                            class_graded_data.append({
+                                'assignment_name': s.get('assignment', {}).get('name', 'Unknown'), 
+                                'grade': grade
+                            })
+                    
                     if class_graded_data:
-                        class_avg_data.extend(class_graded_data)
-                
-                if class_avg_data:
-                    df_class_all = pd.DataFrame(class_avg_data).groupby('assignment_name')['professor_grade'].mean().reset_index()
-                    df_class_all['Type'] = 'Class Average'
-                    df_combined = pd.concat([student_avg, df_class_all])
-                    df_combined.rename(columns={'professor_grade': 'Grade'}, inplace=True)
-                    fig = px.bar(
-                        df_combined, x='assignment_name', y='Grade', color='Type', barmode='group',
-                        title='Your Average Grade vs. Class Average',
-                        color_discrete_map={'Your Average': '#4a9a9b', 'Class Average': '#aecdc2'}
-                    )
-                    fig.update_layout(xaxis_title="Assignment", yaxis_title="Average Grade", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-                    st.plotly_chart(fig, use_container_width=True)
+                        df_class_all = pd.DataFrame(class_graded_data).groupby('assignment_name')['grade'].mean().reset_index()
+                        df_class_all['Type'] = 'Class Average'
+                        df_combined = pd.concat([student_avg, df_class_all])
+                        df_combined.rename(columns={'grade': 'Grade'}, inplace=True)
+                        fig = px.bar(
+                            df_combined, x='assignment_name', y='Grade', color='Type', barmode='group',
+                            title=f'Your Average Grade vs. Class Average - {selected_class_stats["name"]}',
+                            color_discrete_map={'Your Average': '#4a9a9b', 'Class Average': '#aecdc2'}
+                        )
+                        fig.update_layout(xaxis_title="Assignment", yaxis_title="Average Grade", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+                        st.plotly_chart(fig, use_container_width=True)
+                    else:
+                        st.info("No class average data available for comparison.")
+            
             with tab2:
-                fig_box = px.box(df_student, x='assignment_name', y='professor_grade', title="Your Grade Distribution by Assignment", points="all")
+                if selected_class_stats is None:
+                    fig_box = px.box(df_student, x='assignment_name', y='grade', title="Your Grade Distribution by Assignment (All Classes)", points="all")
+                else:
+                    fig_box = px.box(df_student, x='assignment_name', y='grade', title=f"Your Grade Distribution by Assignment - {selected_class_stats['name']}", points="all")
                 fig_box.update_layout(xaxis_title="Assignment", yaxis_title="Grade", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
                 st.plotly_chart(fig_box, use_container_width=True)
+            
+            # Add performance by class tab for overall view
+            if selected_class_stats is None:
+                with tab3:
+                    # Performance by class
+                    class_performance = df_student.groupby('class_name')['grade'].agg(['mean', 'count']).reset_index()
+                    class_performance.columns = ['Class', 'Average Grade', 'Number of Assignments']
+                    
+                    fig_class = px.bar(
+                        class_performance, 
+                        x='Class', 
+                        y='Average Grade',
+                        title='Your Average Grade by Class',
+                        color='Average Grade',
+                        color_continuous_scale='RdYlGn'
+                    )
+                    fig_class.update_layout(xaxis_title="Class", yaxis_title="Average Grade", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+                    st.plotly_chart(fig_class, use_container_width=True)
+                    
+                    # Show detailed class performance table
+                    st.markdown("#### Detailed Class Performance")
+                    st.dataframe(class_performance, use_container_width=True)
 
 # =========================
 # Sidebar Navigation
@@ -279,8 +436,20 @@ with st.sidebar:
         st.page_link('pages/3_Student_View.py', label='Student View', icon='👨‍🎓')
         st.page_link('pages/1_Home.py', label='Home', icon='🏠')
         st.page_link('pages/4_Grades_View.py', label='Grades View', icon='📊')
-        st.markdown("---")
-        if st.button("Logout", use_container_width=True):
+    
+    st.markdown("---")
+    
+    # Session management
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("🔄 Refresh Session", use_container_width=True, help="Refresh your session token"):
+            if refresh_token_if_needed():
+                st.success("Session refreshed!")
+            else:
+                st.info("Session is still valid")
+    
+    with col2:
+        if st.button("🚪 Logout", use_container_width=True):
             for key in list(st.session_state.keys()):
                 del st.session_state[key]
             st.switch_page("login.py")

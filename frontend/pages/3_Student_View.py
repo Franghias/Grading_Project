@@ -159,7 +159,7 @@ st.markdown("""
 # Performance Optimization Functions
 # =========================
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=10)  # Reduced from 300 to 10 seconds for faster updates
 def fetch_classes_cached(token):
     try:
         response = requests.get(f"{API_URL}/classes/", headers={"Authorization": f"Bearer {token}"}, timeout=10)
@@ -169,7 +169,7 @@ def fetch_classes_cached(token):
         st.error(f"Error fetching classes: {e}")
         return []
 
-@st.cache_data(ttl=180)
+@st.cache_data(ttl=10)  # Reduced from 180 to 10 seconds for faster updates
 def fetch_assignments_cached(class_id, token):
     try:
         response = requests.get(f"{API_URL}/classes/{class_id}/assignments/", headers={"Authorization": f"Bearer {token}"}, timeout=10)

@@ -48,7 +48,7 @@ print("Starting application initialization...")
 # JWT Configuration
 SECRET_KEY = os.getenv("SECRET_KEY", "").strip()  # Change this in production
 ALGORITHM = os.getenv("JWT_ALGORITHM", "").strip()
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "480"))  # Default 8 hours (480 minutes)
 
 # Password hashing
 pwd_context = CryptContext(
@@ -376,6 +376,25 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
 async def read_users_me(current_user: models.User = Depends(get_current_user)):
     """Get the current authenticated user's information."""
     return current_user
+
+@app.post("/auth/refresh", response_model=schemas.Token)
+async def refresh_token(current_user: models.User = Depends(get_current_user)):
+    """Refresh the access token to extend the session."""
+    access_token = create_access_token(data={"sub": current_user.email})
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": {
+            "id": current_user.id,
+            "email": current_user.email,
+            "name": current_user.name,
+            "user_id": current_user.user_id,
+            "is_active": current_user.is_active,
+            "is_professor": current_user.is_professor,
+            "created_at": current_user.created_at,
+            "updated_at": current_user.updated_at
+        }
+    }
 
 # =========================
 # Class Management Endpoints

@@ -229,8 +229,19 @@ if selected_class:
     # Create comprehensive dataframe
     data = []
     for sub in submissions:
-        grade = sub.get('final_grade') or sub.get('professor_grade') or sub.get('ai_grade')
-        if grade is not None:
+        # Use final_grade if available, otherwise use professor_grade, but handle 0 correctly
+        final_grade = sub.get('final_grade')
+        professor_grade = sub.get('professor_grade')
+        
+        # Determine which grade to use (prioritize final_grade, then professor_grade)
+        if final_grade is not None:
+            grade = final_grade
+        elif professor_grade is not None:
+            grade = professor_grade
+        else:
+            grade = None
+            
+        if grade is not None:  # This correctly checks for None, allowing 0 grades
             data.append({
                 'user_id': sub['user_id'],
                 'assignment_id': sub['assignment_id'],

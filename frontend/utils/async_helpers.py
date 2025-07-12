@@ -8,6 +8,10 @@ from typing import Dict, List, Optional, Any
 import time
 from functools import lru_cache
 import json
+import requests
+import os
+from dotenv import load_dotenv
+from pathlib import Path
 
 # Cache for API responses
 API_CACHE = {}
@@ -163,4 +167,103 @@ class PerformanceMonitor:
             self.operation_name = None
 
 # Global performance monitor
-perf_monitor = PerformanceMonitor() 
+perf_monitor = PerformanceMonitor()
+
+# =========================
+# Token Refresh Functionality
+# =========================
+
+# Load environment variables
+env_path = Path(__file__).resolve().parent.parent / '.env'
+load_dotenv(dotenv_path=env_path)
+API_URL = os.getenv('API_URL', 'http://localhost:8000').strip()
+
+def refresh_token_if_needed():
+    """
+    Check if token needs refresh and refresh it if necessary.
+    Returns True if token was refreshed, False otherwise.
+    """
+    if 'token' not in st.session_state or 'user' not in st.session_state:
+        return False
+    
+    # Check if we need to refresh (every 6 hours for 8-hour tokens)
+    if 'token_refresh_time' not in st.session_state:
+        st.session_state.token_refresh_time = time.time()
+        return False
+    
+    # Refresh token every 6 hours (21600 seconds)
+    if time.time() - st.session_state.token_refresh_time > 21600:
+        try:
+            response = requests.post(
+                f"{API_URL}/auth/refresh",
+                headers={"Authorization": f"Bearer {st.session_state.token}"},
+                timeout=10
+            )
+            if response.status_code == 200:
+                new_token_data = response.json()
+                st.session_state.token = new_token_data['access_token']
+                st.session_state.user = new_token_data['user']
+                st.session_state.token_refresh_time = time.time()
+                st.success("Session refreshed automatically!")
+                return True
+            else:
+                # Token is invalid, redirect to login
+                st.error("Session expired. Please log in again.")
+                for key in list(st.session_state.keys()):
+                    del st.session_state[key]
+                st.switch_page("login.py")
+                return False
+        except Exception as e:
+            st.error(f"Failed to refresh token: {str(e)}")
+            return False
+    
+    return False
+
+def get_auth_headers():
+    """
+    Get authentication headers with automatic token refresh.
+    """
+    refresh_token_if_needed()
+    
+    if 'token' in st.session_state:
+        return {"Authorization": f"Bearer {st.session_state.token}"}
+    return {}
+
+def make_authenticated_request(method: str, endpoint: str, data: Any = None, **kwargs):
+    """
+    Make an authenticated request with automatic token refresh.
+    """
+    headers = get_auth_headers()
+    
+    try:
+        if method.upper() == 'GET':
+            response = requests.get(f"{API_URL}/{endpoint.lstrip('/')}", headers=headers, **kwargs)
+        elif method.upper() == 'POST':
+            response = requests.post(f"{API_URL}/{endpoint.lstrip('/')}", headers=headers, json=data, **kwargs)
+        elif method.upper() == 'PUT':
+            response = requests.put(f"{API_URL}/{endpoint.lstrip('/')}", headers=headers, json=data, **kwargs)
+        elif method.upper() == 'DELETE':
+            response = requests.delete(f"{API_URL}/{endpoint.lstrip('/')}", headers=headers, **kwargs)
+        else:
+            raise ValueError(f"Unsupported HTTP method: {method}")
+        
+        # If token expired, try to refresh and retry once
+        if response.status_code == 401:
+            if refresh_token_if_needed():
+                # Retry the request with new token
+                headers = get_auth_headers()
+                if method.upper() == 'GET':
+                    response = requests.get(f"{API_URL}/{endpoint.lstrip('/')}", headers=headers, **kwargs)
+                elif method.upper() == 'POST':
+                    response = requests.post(f"{API_URL}/{endpoint.lstrip('/')}", headers=headers, json=data, **kwargs)
+                elif method.upper() == 'PUT':
+                    response = requests.put(f"{API_URL}/{endpoint.lstrip('/')}", headers=headers, json=data, **kwargs)
+                elif method.upper() == 'DELETE':
+                    response = requests.delete(f"{API_URL}/{endpoint.lstrip('/')}", headers=headers, **kwargs)
+        
+        response.raise_for_status()
+        return response.json()
+        
+    except requests.RequestException as e:
+        st.error(f"Request failed: {str(e)}")
+        return None 
