@@ -229,26 +229,19 @@ if selected_class:
     # Create comprehensive dataframe
     data = []
     for sub in submissions:
-        # Use final_grade if available, otherwise use professor_grade, but handle 0 correctly
         final_grade = sub.get('final_grade')
         professor_grade = sub.get('professor_grade')
         
         # Determine which grade to use (prioritize final_grade, then professor_grade)
-        if final_grade is not None:
-            grade = final_grade
-        elif professor_grade is not None:
-            grade = professor_grade
-        else:
-            grade = None
+        grade = final_grade if final_grade is not None else professor_grade
             
-        if grade is not None:  # This correctly checks for None, allowing 0 grades
+        if grade is not None:
             data.append({
                 'user_id': sub['user_id'],
                 'assignment_id': sub['assignment_id'],
                 'grade': grade,
                 'ai_grade': sub.get('ai_grade'),
-                'professor_grade': sub.get('professor_grade'),
-                'final_grade': sub.get('final_grade'),
+                'professor_grade': professor_grade, # Keep professor_grade for comparison
                 'created_at': sub['created_at'],
                 'assignment_name': next((a['name'] for a in assignments if a['id'] == sub['assignment_id']), 'Unknown')
             })
@@ -260,52 +253,42 @@ if selected_class:
     df = pd.DataFrame(data)
     df['created_at'] = pd.to_datetime(df['created_at'])
     df['grade_letter'] = df['grade'].apply(get_grade_letter)
-    
+
+    # --- Data for Student Performance ---
+    student_stats = df.groupby('user_id').agg({
+        'grade': ['mean', 'count', 'std'],
+        'assignment_id': 'nunique'
+    }).round(2)
+    student_stats.columns = ['Average Grade', 'Total Submissions', 'Grade Std Dev', 'Assignments Attempted']
+    student_stats = student_stats.reset_index()
+
     # =========================
     # Overview Metrics
     # =========================
     
     st.markdown("## 📈 Overview Metrics")
     
-    col1, col2, col3, col4 = st.columns(4)
+    # Calculate passing rate
+    passing_rate = (student_stats['Average Grade'] >= 60).mean() * 100
+    
+    col1, col2, col3, col4, col5 = st.columns(5)
     
     with col1:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">Average Grade</div>
-            <div class="metric-value">{df['grade'].mean():.1f}%</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
+        st.metric("Average Grade", f"{df['grade'].mean():.1f}%")
     with col2:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">Total Submissions</div>
-            <div class="metric-value">{len(df)}</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
+        st.metric("Total Submissions", f"{len(df)}")
     with col3:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">Active Students</div>
-            <div class="metric-value">{df['user_id'].nunique()}</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
+        st.metric("Active Students", f"{df['user_id'].nunique()}")
     with col4:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">Assignments</div>
-            <div class="metric-value">{df['assignment_id'].nunique()}</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
+        st.metric("Assignments", f"{df['assignment_id'].nunique()}")
+    with col5:
+        st.metric("Passing Rate", f"{passing_rate:.1f}%")
+
     # =========================
     # Detailed Analytics Tabs
     # =========================
     
-    tab1, tab2, tab3, tab4 = st.tabs(["📊 Grade Distribution", "📈 Assignment Analysis", "👥 Student Performance", "⏰ Time Trends"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Grade Distribution", "📈 Assignment Analysis", "👥 Student Performance", "🤖 AI Grade Analysis", "⏰ Time Trends"])
     
     with tab1:
         st.markdown("## 📊 Grade Distribution Analysis")
@@ -316,145 +299,125 @@ if selected_class:
             # Grade distribution histogram
             fig_hist = px.histogram(
                 df, x='grade', nbins=20,
-                title="Grade Distribution",
+                title="Overall Grade Distribution",
                 labels={'grade': 'Grade (%)', 'count': 'Number of Submissions'},
                 color_discrete_sequence=['#4a9a9b']
             )
-            fig_hist.update_layout(
-                showlegend=False,
-                plot_bgcolor='rgba(0,0,0,0)',
-                paper_bgcolor='rgba(0,0,0,0)'
-            )
+            fig_hist.update_layout(showlegend=False, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig_hist, use_container_width=True)
         
         with col2:
             # Grade letter distribution
             grade_counts = df['grade_letter'].value_counts()
             fig_pie = px.pie(
-                values=grade_counts.values,
-                names=grade_counts.index,
+                values=grade_counts.values, names=grade_counts.index,
                 title="Grade Letter Distribution",
                 color_discrete_sequence=px.colors.qualitative.Set3
             )
-            fig_pie.update_layout(
-                plot_bgcolor='rgba(0,0,0,0)',
-                paper_bgcolor='rgba(0,0,0,0)'
-            )
+            fig_pie.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig_pie, use_container_width=True)
         
-        # Grade statistics table
-        st.markdown("### 📋 Grade Statistics")
-        stats_df = df['grade'].describe()
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric("Mean", f"{stats_df['mean']:.2f}%")
-            st.metric("Median", f"{df['grade'].median():.2f}%")
-        with col2:
-            st.metric("Standard Deviation", f"{stats_df['std']:.2f}%")
-            st.metric("Variance", f"{stats_df['std']**2:.2f}")
-        with col3:
-            st.metric("Minimum", f"{stats_df['min']:.2f}%")
-            st.metric("Maximum", f"{stats_df['max']:.2f}%")
-        with col4:
-            st.metric("25th Percentile", f"{stats_df['25%']:.2f}%")
-            st.metric("75th Percentile", f"{stats_df['75%']:.2f}%")
+        # CONSOLIDATED Grade statistics table
+        st.markdown("### 📋 Grade Statistics Summary")
+        grade_summary = df['grade'].describe().to_frame().T
+        st.dataframe(grade_summary, use_container_width=True)
     
     with tab2:
         st.markdown("## 📈 Assignment Performance Analysis")
         
-        # Assignment performance comparison
-        assignment_stats = df.groupby('assignment_name').agg({
-            'grade': ['mean', 'std', 'count'],
-            'user_id': 'nunique'
-        }).round(2)
+        assignment_stats = df.groupby('assignment_name').agg(
+            {'grade': ['mean', 'std', 'count'], 'user_id': 'nunique'}
+        ).round(2)
         assignment_stats.columns = ['Average Grade', 'Std Dev', 'Submissions', 'Students']
         assignment_stats = assignment_stats.reset_index()
         
-        # Assignment performance chart
         fig_assignment = px.bar(
-            assignment_stats,
-            x='assignment_name',
-            y='Average Grade',
+            assignment_stats, x='assignment_name', y='Average Grade',
             title="Average Grade by Assignment",
             labels={'assignment_name': 'Assignment', 'Average Grade': 'Average Grade (%)'},
-            color='Average Grade',
-            color_continuous_scale='RdYlGn'
+            color='Average Grade', color_continuous_scale='RdYlGn'
         )
-        fig_assignment.update_layout(
-            xaxis_tickangle=-45,
-            plot_bgcolor='rgba(0,0,0,0)',
-            paper_bgcolor='rgba(0,0,0,0)'
-        )
+        fig_assignment.update_layout(xaxis_tickangle=-45, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
         st.plotly_chart(fig_assignment, use_container_width=True)
         
-        # Assignment statistics table
         st.markdown("### 📋 Assignment Statistics")
         st.dataframe(assignment_stats, use_container_width=True)
     
     with tab3:
         st.markdown("## 👥 Student Performance Analysis")
         
-        # Student performance summary
-        student_stats = df.groupby('user_id').agg({
-            'grade': ['mean', 'count', 'std'],
-            'assignment_id': 'nunique'
-        }).round(2)
-        student_stats.columns = ['Average Grade', 'Total Submissions', 'Grade Std Dev', 'Assignments Attempted']
-        student_stats = student_stats.reset_index()
-        
-        # Top performers
-        st.markdown("### 🏆 Top Performers")
-        top_performers = student_stats.nlargest(5, 'Average Grade')
-        fig_top = px.bar(
-            top_performers,
-            x='user_id',
-            y='Average Grade',
-            title="Top 5 Students by Average Grade",
-            color='Average Grade',
-            color_continuous_scale='RdYlGn'
+        # REPLACED Top Performers chart with a distribution of student averages
+        st.markdown("### Class Performance Distribution")
+        fig_student_dist = px.histogram(
+            student_stats, x='Average Grade', nbins=15,
+            title="Distribution of Student Average Grades",
+            labels={'Average Grade': 'Average Grade Bins', 'count': 'Number of Students'},
+            color_discrete_sequence=['#3d8283']
         )
-        st.plotly_chart(fig_top, use_container_width=True)
+        fig_student_dist.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
+        st.plotly_chart(fig_student_dist, use_container_width=True)
         
-        # Student statistics table
-        st.markdown("### 📋 Student Statistics")
+        st.markdown("### 📋 Detailed Student Statistics")
         st.dataframe(student_stats, use_container_width=True)
-    
-    with tab4:
+        
+    with tab4: # NEW TAB for AI Grade Analysis
+        st.markdown("## 🤖 AI vs. Professor Grade Analysis")
+        
+        df_both_grades = df.dropna(subset=['professor_grade', 'ai_grade']).copy()
+
+        if df_both_grades.empty:
+            st.info("No submissions with both AI and Professor grades are available to compare.")
+        else:
+            mean_abs_diff = (df_both_grades['ai_grade'] - df_both_grades['professor_grade']).abs().mean()
+            st.metric("Mean Absolute Difference", f"{mean_abs_diff:.2f} points")
+
+            col1, col2 = st.columns(2)
+            with col1:
+                fig_scatter = px.scatter(
+                    df_both_grades, x='ai_grade', y='professor_grade',
+                    title='AI vs. Professor Grade Correlation',
+                    trendline="ols", trendline_color_override="#d6336c",
+                    labels={'ai_grade': 'AI Grade', 'professor_grade': 'Professor Final Grade'}
+                )
+                fig_scatter.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+                st.plotly_chart(fig_scatter, use_container_width=True)
+            
+            with col2:
+                fig_hist_comp = go.Figure()
+                fig_hist_comp.add_trace(go.Histogram(x=df_both_grades['ai_grade'], name='AI Grades', marker_color='#4a9a9b', opacity=0.7))
+                fig_hist_comp.add_trace(go.Histogram(x=df_both_grades['professor_grade'], name='Professor Grades', marker_color='#3d8283', opacity=0.7))
+                fig_hist_comp.update_layout(
+                    barmode='overlay', title_text='AI vs. Professor Grade Distribution',
+                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)'
+                )
+                fig_hist_comp.update_traces(opacity=0.75)
+                st.plotly_chart(fig_hist_comp, use_container_width=True)
+
+    with tab5:
         st.markdown("## ⏰ Time-Based Trends")
         
-        # Daily submission trends
-        daily_submissions = df.groupby(df['created_at'].dt.date).size().reset_index()
-        daily_submissions.columns = ['Date', 'Submissions']
+        # This line creates columns named 'created_at' and 'Submissions'
+        daily_submissions = df.groupby(df['created_at'].dt.date).size().reset_index(name='Submissions')
         
+        # Use the correct column name 'created_at' for the x-axis
         fig_trend = px.line(
-            daily_submissions,
-            x='Date',
-            y='Submissions',
-            title="Daily Submission Trends",
-            markers=True
+            daily_submissions, x='created_at', y='Submissions',
+            title="Daily Submission Trends", markers=True,
+            labels={'created_at': 'Date'} # Add a label to display 'Date' on the chart
         )
-        fig_trend.update_layout(
-            plot_bgcolor='rgba(0,0,0,0)',
-            paper_bgcolor='rgba(0,0,0,0)'
-        )
+        fig_trend.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
         st.plotly_chart(fig_trend, use_container_width=True)
         
-        # Grade trends over time
+        # The rest of the tab's code remains the same
         df['date'] = df['created_at'].dt.date
         grade_trends = df.groupby('date')['grade'].mean().reset_index()
         
         fig_grade_trend = px.line(
-            grade_trends,
-            x='date',
-            y='grade',
-            title="Average Grade Trends Over Time",
-            markers=True
+            grade_trends, x='date', y='grade',
+            title="Average Grade Trends Over Time", markers=True,
+            labels={'date': 'Date', 'grade': 'Average Grade'}
         )
-        fig_grade_trend.update_layout(
-            plot_bgcolor='rgba(0,0,0,0)',
-            paper_bgcolor='rgba(0,0,0,0)'
-        )
+        fig_grade_trend.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
         st.plotly_chart(fig_grade_trend, use_container_width=True)
     
     # =========================
@@ -467,26 +430,25 @@ if selected_class:
     col1, col2 = st.columns(2)
     
     with col1:
-        if st.button("📊 Export Grade Report", type="primary"):
-            csv = df.to_csv(index=False)
-            st.download_button(
-                label="Download CSV",
-                data=csv,
-                file_name=f"{selected_class['name']}_grade_report.csv",
-                mime="text/csv"
-            )
+        # The button is just for display; the download_button below handles the action.
+        st.button("📊 Export Grade Report", type="primary", use_container_width=True)
+        csv_grades = df.to_csv(index=False)
+        st.download_button(
+            label="Download Grades as CSV",
+            data=csv_grades,
+            file_name=f"{selected_class['name']}_grade_report.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
     
     with col2:
-        if st.button("📈 Export Statistics Summary", type="secondary"):
-            summary_data = {
-                'Metric': ['Total Submissions', 'Average Grade', 'Active Students', 'Assignments'],
-                'Value': [len(df), f"{df['grade'].mean():.2f}%", df['user_id'].nunique(), df['assignment_id'].nunique()]
-            }
-            summary_df = pd.DataFrame(summary_data)
-            csv = summary_df.to_csv(index=False)
-            st.download_button(
-                label="Download Summary",
-                data=csv,
-                file_name=f"{selected_class['name']}_statistics_summary.csv",
-                mime="text/csv"
-            )
+        # The button is just for display; the download_button below handles the action.
+        st.button("📈 Export Statistics Summary", type="secondary", use_container_width=True)
+        csv_stats = student_stats.to_csv(index=False)
+        st.download_button(
+            label="Download Student Stats as CSV",
+            data=csv_stats,
+            file_name=f"{selected_class['name']}_student_statistics.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
