@@ -280,40 +280,9 @@ with col1:
                 st.markdown(f"**Learning Objectives:** {class_data['learning_objectives'] or 'None'}")
                 for professor in class_data['professors']:
                     st.markdown(f"- {professor['name']} ({professor['email']})")
-                assignments = assignments_data.get(class_data['id'], [])
-                if assignments:
-                    for assignment in assignments:
-                        st.markdown(f"#### 📝 {assignment['name']}")
-                        my_subs = [s for s in all_submissions if s['assignment_id'] == assignment['id']]
-                        with st.form(key=f"submit_form_{assignment['id']}"):
-                            code = st.text_area("Paste your code here:", height=200)
-                            if st.form_submit_button("Submit Code"):
-                                if not code.strip():
-                                    st.error("Please enter your code before submitting.")
-                                else:
-                                    try:
-                                        requests.post(
-                                            f"{API_URL}/submissions/",
-                                            json={"code": code, "class_id": class_data['id'], "assignment_id": assignment['id']},
-                                            headers={"Authorization": f"Bearer {st.session_state.token}"}
-                                        ).raise_for_status()
-                                        st.success("Code submitted successfully! Check below for your AI grade and feedback.")
-                                        fetch_submissions_cached.clear()
-                                        st.rerun()
-                                    except requests.RequestException as e:
-                                        st.error(f"Error submitting code: {e}")
-                        if my_subs:
-                            st.markdown("**Previous Submissions:**")
-                            for sub in sorted(my_subs, key=lambda x: x['created_at'], reverse=True):
-                                st.markdown(f"- **Final Grade:** `{sub.get('final_grade', 'N/A')}`")
-                                st.markdown(f"- **Professor Feedback:** *{sub.get('professor_feedback', 'No feedback yet.')}*")
-                                st.markdown(f"- **AI Grade:** `{sub.get('ai_grade', 'Processing...')}`")
-                                st.markdown(f"- **AI Feedback:** *{sub.get('ai_feedback', 'Processing...')}*")
-                                # with st.expander("View Submitted Code"):
-                                st.code(sub.get('code', ''), language="python")
-                                st.markdown("---")
-                else:
-                    st.info("No assignments for this class.")
+                # Add Go to Home button
+                if st.button(f"Go to Home", key=f"go_home_{class_data['id']}"):
+                    st.switch_page("pages/1_Home.py")
     else:
         st.info("You haven't enrolled in any classes yet.")
 

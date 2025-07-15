@@ -20,7 +20,7 @@ Run these commands to stop all services and prevent further charges.
 
   
 
-### Delete the Cloud Run Service
+**Delete the Cloud Run Service**
 
 ```bash
 
@@ -30,7 +30,7 @@ gcloud  run  services  delete  grading-backend  --region=us-central1  --quiet
 
   
 
-### Stop the Cloud SQL Database Instance
+**Stop the Cloud SQL Database Instance**
 
 ```bash
 
@@ -40,7 +40,7 @@ gcloud  sql  instances  patch  grading-db  --activation-policy=NEVER
 
   
 
-### Delete the Container Image
+**Delete the Container Image**
 
 ```bash
 
@@ -58,7 +58,7 @@ gcloud  artifacts  docker  images  delete  us-central1-docker.pkg.dev/grading-pr
 
   
 
-### Log in to Google Cloud
+**Log in to Google Cloud**
 
 ```bash
 
@@ -68,9 +68,7 @@ gcloud  auth  login
 
   
 
-### Set Your Project
-
-> Replace `grading-project-463816` with your actual project ID.
+**Set Your Project**
 
 ```bash
 
@@ -80,11 +78,11 @@ gcloud  config  set  project  grading-project-463816
 
   
 
-### Enable Required APIs
+**Enable Required APIs**
 
 ```bash
 
-gcloud services enable run.googleapis.com sqladmin.googleapis.com cloudbuild.googleapis.com secretmanager.googleapis.com artifactregistry.googleapis.com
+gcloud  services  enable  run.googleapis.com  sqladmin.googleapis.com  cloudbuild.googleapis.com  secretmanager.googleapis.com  artifactregistry.googleapis.com
 
 ```
 
@@ -98,13 +96,13 @@ gcloud services enable run.googleapis.com sqladmin.googleapis.com cloudbuild.goo
 
   
 
-### Create a PostgreSQL Instance (Takes several minutes)
+**Create a PostgreSQL Instance (Takes several minutes)**
 
 ```bash
 
 gcloud  sql  instances  create  grading-db  ^
 
---database-version=POSTGRES_13 ^
+--database-version=POSTGRES_13  ^
 
 --region=us-central1  ^
 
@@ -114,7 +112,7 @@ gcloud  sql  instances  create  grading-db  ^
 
   
 
-### Create a Database
+**Create a Database**
 
 ```bash
 
@@ -124,13 +122,13 @@ gcloud  sql  databases  create  grading_db_for_grading  --instance=grading-db
 
   
 
-### Create a Database User
+**Create a Database User**
 
 ```bash
 
 gcloud  sql  users  create  superuser_for_me_grading__project  \
 
---instance=grading-db \
+--instance=grading-db  \
 
 --password="CHOOSE_A_DIFFERENT_STRONG_PASSWORD"
 
@@ -138,25 +136,25 @@ gcloud  sql  users  create  superuser_for_me_grading__project  \
 
   
 
-### Store Credentials in Secret Manager
+**Store Credentials in Secret Manager**
 
 ```bash
 
 # Store the database name
 
-echo  -n  "grading_db_for_grading"  |  gcloud  secrets  create  postgres_db  --data-file=-
+echo  -n  "grading_db_for_grading" | gcloud  secrets  create  postgres_db  --data-file=-
 
   
 
 # Store the database user
 
-echo  -n  "superuser_for_me_grading__project"  |  gcloud  secrets  create  postgres_user  --data-file=-
+echo  -n  "superuser_for_me_grading__project" | gcloud  secrets  create  postgres_user  --data-file=-
 
   
 
 # Store the database password
 
-echo  -n  "THE_USER_PASSWORD_YOU_CHOSE"  |  gcloud  secrets  create  postgres-password  --data-file=-
+echo  -n  "THE_USER_PASSWORD_YOU_CHOSE" | gcloud  secrets  create  postgres-password  --data-file=-
 
 ```
 
@@ -170,19 +168,7 @@ echo  -n  "THE_USER_PASSWORD_YOU_CHOSE"  |  gcloud  secrets  create  postgres-pa
 
   
 
-### Find Your Project Number
-
-```bash
-
-gcloud  projects  describe $(gcloud  config  get-value  project) --format='value(projectNumber)'
-
-```
-
-  
-
-### Grant Permissions to Cloud Build
-
-> Replace `[PROJECT_NUMBER]` with your actual project number.
+**Grant Permissions to Cloud Build**
 
   
 
@@ -190,9 +176,9 @@ gcloud  projects  describe $(gcloud  config  get-value  project) --format='value
 
 # Role: Cloud Run Admin
 
-gcloud  projects  add-iam-policy-binding $(gcloud  config  get-value  project) ^
+gcloud  projects  add-iam-policy-binding  grading-project-463816  ^
 
---member="serviceAccount:[PROJECT_NUMBER]@cloudbuild.gserviceaccount.com" ^
+--member="serviceAccount:668649247368@cloudbuild.gserviceaccount.com"  ^
 
 --role="roles/run.admin"
 
@@ -200,9 +186,9 @@ gcloud  projects  add-iam-policy-binding $(gcloud  config  get-value  project) ^
 
 # Role: Service Account User
 
-gcloud  projects  add-iam-policy-binding $(gcloud  config  get-value  project) ^
+gcloud  projects  add-iam-policy-binding  grading-project-463816  ^
 
---member="serviceAccount:[PROJECT_NUMBER]@cloudbuild.gserviceaccount.com" ^
+--member="serviceAccount:668649247368@cloudbuild.gserviceaccount.com"  ^
 
 --role="roles/iam.serviceAccountUser"
 
@@ -210,15 +196,15 @@ gcloud  projects  add-iam-policy-binding $(gcloud  config  get-value  project) ^
 
   
 
-### Grant Permissions to Cloud Run Runtime
+**Grant Permissions to Cloud Run Runtime**
 
 ```bash
 
 # Role: Cloud SQL Client
 
-gcloud  projects  add-iam-policy-binding $(gcloud  config  get-value  project) \
+gcloud  projects  add-iam-policy-binding  grading-project-463816  ^
 
---member="serviceAccount:[PROJECT_NUMBER]-compute@developer.gserviceaccount.com" \
+--member="serviceAccount:668649247368-compute@developer.gserviceaccount.com"  ^
 
 --role="roles/cloudsql.client"
 
@@ -226,9 +212,9 @@ gcloud  projects  add-iam-policy-binding $(gcloud  config  get-value  project) \
 
 # Role: Secret Manager Secret Accessor
 
-gcloud  projects  add-iam-policy-binding $(gcloud  config  get-value  project) \
+gcloud  projects  add-iam-policy-binding  grading-project-463816  ^
 
---member="serviceAccount:[PROJECT_NUMBER]-compute@developer.gserviceaccount.com" \
+--member="serviceAccount:668649247368-compute@developer.gserviceaccount.com"  ^
 
 --role="roles/secretmanager.secretAccessor"
 
@@ -244,13 +230,13 @@ gcloud  projects  add-iam-policy-binding $(gcloud  config  get-value  project) \
 
   
 
-### `database.py`: Configure Cloud SQL Connection
+**`database.py`: Configure Cloud SQL Connection**
 
 ```python
 
 if POSTGRES_HOST.startswith('/cloudsql'):
 
-DATABASE_URL =  (
+DATABASE_URL = (
 
 f"postgresql+psycopg2://{POSTGRES_USER}:{POSTGRES_PASSWORD}@"
 
@@ -260,7 +246,7 @@ f"/{POSTGRES_DB}?host={POSTGRES_HOST}"
 
 else:
 
-DATABASE_URL =  (
+DATABASE_URL = (
 
 f"postgresql+psycopg2://{POSTGRES_USER}:{POSTGRES_PASSWORD}@"
 
@@ -272,9 +258,9 @@ f"{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
 
   
 
-### `requirements.txt`: Make sure this package is included
+**`requirements.txt`: Make sure this package is included**
 
-```txt
+```
 
 fastapi
 
@@ -292,15 +278,15 @@ python-multipart
 
   
 
-### `cloudbuild.yaml`: Check deployment arguments
+**`cloudbuild.yaml`: Check deployment arguments**
 
 ```yaml
 
--  '--add-cloudsql-instances=${_PROJECT_ID}:${_REGION}:grading-db'
+- '--add-cloudsql-instances=${_PROJECT_ID}:${_REGION}:grading-db'
 
--  '--set-secrets=POSTGRES_DB=postgres_db:latest,POSTGRES_USER=postgres_user:latest,POSTGRES_PASSWORD=postgres-password:latest'
+- '--set-secrets=POSTGRES_DB=postgres_db:latest,POSTGRES_USER=postgres_user:latest,POSTGRES_PASSWORD=postgres-password:latest'
 
--  '--allow-unauthenticated'
+- '--allow-unauthenticated'
 
 ```
 
@@ -324,7 +310,7 @@ gcloud  builds  submit  --config  cloudbuild.yaml  .
 
   
 
-> After deployment, you’ll see the service URL in the console output.
+After deployment, you’ll see the service URL in the console output.
 
   
 
@@ -340,9 +326,11 @@ If you get a 403 Forbidden error, allow public access with:
 
 ```bash
 
-gcloud run services add-iam-policy-binding grading-backend --member="allUsers" --role="roles/run.invoker" --region="us-central1"
+gcloud  run  services  add-iam-policy-binding  grading-backend  --member="allUsers"  --role="roles/run.invoker"  --region="us-central1"
 
 ```
+
+  
 
 ---
 
@@ -356,7 +344,7 @@ When finished, stop services again to avoid charges:
 
   
 
-### Delete the Cloud Run Service
+**Delete the Cloud Run Service**
 
 ```bash
 
@@ -366,7 +354,7 @@ gcloud  run  services  delete  grading-backend  --region=us-central1  --quiet
 
   
 
-### Stop the Cloud SQL Instance
+**Stop the Cloud SQL Instance**
 
 ```bash
 
@@ -376,10 +364,8 @@ gcloud  sql  instances  patch  grading-db  --activation-policy=NEVER
 
   
 
-### Optional: Delete the Project
-
-For complete shutdown, go to **IAM & Admin > Manage Resources** in the Google Cloud Console and delete the project.
+**Optional: Delete the Project**
 
   
 
----
+For complete shutdown, go to **IAM & Admin > Manage Resources** in the Google Cloud Console and delete the project.
