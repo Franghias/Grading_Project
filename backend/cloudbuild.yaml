@@ -34,13 +34,15 @@ steps:
       - '--platform=managed'
       - '--region=${_REGION}'
       - '--allow-unauthenticated'
-      - '--set-env-vars=NODE_ENV=production,ALLOWED_ORIGINS=*,POSTGRES_HOST=/cloudsql/${_PROJECT_ID}:${_REGION}:grading-deploying'
+      - '--set-env-vars=NODE_ENV=production,ALLOWED_ORIGINS=http://localhost:8501,POSTGRES_HOST=/cloudsql/${_PROJECT_ID}:${_REGION}:grading-deploying'
       - '--set-secrets=POSTGRES_DB=postgres_db:latest,POSTGRES_USER=postgres_user:latest,POSTGRES_PORT=postgres_port:latest,JWT_ALGORITHM=jwt_algorithm:latest,SECRET_KEY=secret-key:latest,POSTGRES_PASSWORD=postgres-password:latest,AI_API_KEY=ai_api_key:latest,AI_MODEL=ai_model:latest,AI_API_ENDPOINT=ai_api_endpoint:latest'
       - '--add-cloudsql-instances=${_PROJECT_ID}:${_REGION}:grading-deploying'
       - '--memory=512Mi'
       - '--cpu=1'
       - '--min-instances=0'
       - '--max-instances=2'
+      - '--vpc-connector=grading-vpc-connector' # <-- ADD THIS LINE
+      - '--vpc-egress=private-ranges-only'      # <-- ADD THIS LINE (Recommended for security)
 
 options:
   machineType: 'E2_MEDIUM'

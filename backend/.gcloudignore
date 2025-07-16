@@ -1,0 +1,74 @@
+# .gcloudignore
+
+# ############################
+# # General
+# ############################
+
+# Git history. This is often large and is not needed for the build.
+.git/
+
+# The Cloud Build configuration file itself doesn't need to be in the build context.
+cloudbuild.yaml
+
+# IDE and editor configuration files.
+.vscode/
+.idea/
+
+# Operating System specific files.
+.DS_Store
+Thumbs.db
+
+
+# ############################
+# # Python Specific
+# ############################
+
+# Local virtual environment directories. Your Dockerfile creates its own.
+venv/
+.venv/
+env/
+ENV/
+
+# Python bytecode and cache.
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# ############################
+# # Security & Secrets
+# ############################
+
+# Local environment variable files. Your cloudbuild.yaml correctly uses
+# Secret Manager, so these should never be uploaded.
+.env
+*.env
+
+# ############################
+# # Testing Artifacts
+# ############################
+
+# Pytest cache and coverage reports.
+.pytest_cache/
+.coverage
+htmlcov/
+nosetests.xml
+coverage.xml
