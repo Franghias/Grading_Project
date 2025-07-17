@@ -12,3 +12,4 @@ urllib3==1.26.15
 email-validator==2.2.0
 starlette==0.36.3
 python-multipart==0.0.5
+statsmodels>=0.13.0
