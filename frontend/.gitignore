@@ -1,0 +1,38 @@
+# Ignore Python virtual environment
+venv/
+.venv/
+
+# Ignore Python bytecode and cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Ignore compiled files in utils
+utils/__pycache__/
+
+# Ignore Jupyter and other editor/IDE files
+.ipynb_checkpoints/
+*.ipynb
+
+# Ignore OS and editor files
+.DS_Store
+Thumbs.db
+
+# Ignore environment and config files
+.env
+*.env
+
+# Ignore any log or temp files
+*.log
+*.tmp
+
+# Ignore backup files
+*~
+*.bak
+
+# Ignore any files related to package management that shouldn't be tracked
+pip-log.txt
+
+# Ignore all files in virtual environment subfolders
+venv/
+.venv/
