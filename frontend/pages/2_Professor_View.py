@@ -43,13 +43,14 @@ st.markdown("""
         }
         [data-testid="stSidebarNav"] {display: none;}
         :root {
-            --primary-color: #4a9a9b;
-            --primary-hover-color: #3d8283;
-            --background-color: #f0f2f6;
-            --card-background-color: #ffffff;
-            --text-color: #262730;
-            --subtle-text-color: #5E5E5E;
-            --border-color: #e0e0e0;
+            /* New Earthy Palette */
+            --primary-color: #d4a373;         /* Tan (for headings and primary actions) */
+            --primary-hover-color: #faedcd;    /* Sandy Beige (for button hover) */
+            --background-color: #e9edc9;      /* Pale Green/Yellow (main background) */
+            --card-background-color: #fefae0; /* Creamy Yellow (card background) */
+            --text-color: #5d4037;            /* Dark Brown for main text */
+            --subtle-text-color: #8a817c;      /* Muted gray-brown for paragraphs */
+            --border-color: #ccd5ae;          /* Muted Earthy Green (borders) */
         }
         .stApp {
             background-color: var(--background-color);
@@ -61,41 +62,54 @@ st.markdown("""
             animation: fadeIn 0.5s ease-in-out forwards;
         }
         .header {
-            background-color: var(--primary-color);
+            background-color: var(--card-background-color);
             padding: 2rem;
             text-align: center;
-            color: #ffffff;
+            color: var(--text-color);
             margin-bottom: 2rem;
             border-radius: 12px;
+            border: 1px solid var(--border-color);
         }
-        .header h1 { font-size: 2.5rem; font-weight: 700; }
+        .header h1 { font-size: 2.5rem; font-weight: 700; color: var(--text-color); }
         .styled-card, .stExpander {
             background-color: var(--card-background-color);
             border: 1px solid var(--border-color);
             border-radius: 12px;
             padding: 1.5rem;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 4px 12px rgba(212, 163, 115, 0.05);
             margin-bottom: 1.5rem;
         }
-        .stExpander header { font-size: 1.25rem; font-weight: 600; }
+        .stExpander header { 
+            font-size: 1.25rem; 
+            font-weight: 600;
+            color: var(--text-color);
+        }
         .stButton > button {
             border-radius: 8px;
             padding: 0.6rem 1.2rem;
             font-weight: 600;
             transition: all 0.2s ease-in-out;
             background-color: var(--primary-color);
-            color: white;
-            border: none;
+            color: var(--text-color);
+            border: 1px solid var(--primary-color);
         }
         .stButton > button:hover {
             transform: translateY(-2px);
             background-color: var(--primary-hover-color);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border-color: var(--primary-hover-color);
+            box-shadow: 0 4px 12px rgba(212, 163, 115, 0.15);
         }
-        .stButton > button[kind="secondary"] { background-color: #6c757d; }
-        .stButton > button[kind="secondary"]:hover { background-color: #5a6268; }
+        .stButton > button[kind="secondary"] { 
+            background-color: transparent;
+            color: var(--primary-color);
+        }
+        .stButton > button[kind="secondary"]:hover { 
+             background-color: var(--primary-hover-color);
+             color: var(--text-color);
+             border-color: var(--primary-hover-color);
+        }
         .info-box {
-            background-color: #f8fafc;
+            background-color: var(--background-color);
             padding: 1rem;
             border-radius: 8px;
             border: 1px solid var(--border-color);
@@ -126,7 +140,7 @@ with st.sidebar:
     st.page_link('pages/create_class.py', label='Create a New Class', icon='➕')
     st.page_link('pages/7_Class_Statistics.py', label='Class Statistics', icon='📊')
     st.markdown("---")
-    if st.button("Logout", use_container_width=True):
+    if st.button("Logout", use_container_width=True, type="secondary"):
         for key in list(st.session_state.keys()):
             del st.session_state[key]
         st.switch_page("login.py")
@@ -175,7 +189,7 @@ col1, col2 = st.columns([3, 1])
 with col1:
     selected_class = st.selectbox("Select a class to manage:", options=classes, format_func=lambda x: f"{x['name']} ({x['code']})")
 with col2:
-    if st.button("🔄 Refresh Data", help="Refresh all submissions and assignments"):
+    if st.button("🔄 Refresh Data", help="Refresh all submissions and assignments", type="secondary"):
         st.cache_data.clear()
         st.rerun()
 

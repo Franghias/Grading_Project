@@ -36,7 +36,7 @@ if 'user' in st.session_state and not st.session_state.user.get('is_professor'):
         st.page_link('pages/1_Home.py', label='Home', icon='🏠')
         st.page_link('pages/4_Grades_View.py', label='Grades View', icon='📊')
         st.markdown("---")
-        if st.button("Logout", use_container_width=True):
+        if st.button("Logout", use_container_width=True, type="secondary"):
             for key in list(st.session_state.keys()):
                 del st.session_state[key]
             st.switch_page("login.py")
@@ -62,13 +62,14 @@ st.markdown("""
 
         /* --- Theme & Base Styles --- */
         :root {
-            --primary-color: #4a9a9b;
-            --primary-hover-color: #3d8283;
-            --background-color: #f0f2f6;
-            --card-background-color: #ffffff;
-            --text-color: #262730;
-            --subtle-text-color: #5E5E5E;
-            --border-color: #e0e0e0;
+            /* New Earthy Palette */
+            --primary-color: #d4a373;         /* Tan (for headings and primary actions) */
+            --primary-hover-color: #faedcd;    /* Sandy Beige (for button hover) */
+            --background-color: #e9edc9;      /* Pale Green/Yellow (main background) */
+            --card-background-color: #fefae0; /* Creamy Yellow (card background) */
+            --text-color: #5d4037;            /* Dark Brown for main text */
+            --subtle-text-color: #8a817c;      /* Muted gray-brown for paragraphs */
+            --border-color: #ccd5ae;          /* Muted Earthy Green (borders) */
         }
         .stApp {
             background-color: var(--background-color);
@@ -84,7 +85,7 @@ st.markdown("""
         .page-header h1 {
             font-size: 2.5rem;
             font-weight: 700;
-            color: var(--primary-color);
+            color: var(--text-color);
             text-align: center;
         }
         .page-header p {
@@ -98,15 +99,19 @@ st.markdown("""
             background-color: var(--card-background-color);
             border: 1px solid var(--border-color);
             border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 4px 12px rgba(212, 163, 115, 0.05);
             margin-bottom: 1.5rem;
             transition: all 0.3s ease-in-out;
         }
         .stExpander:hover, .styled-card:hover {
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 8px 24px rgba(212, 163, 115, 0.1);
             transform: translateY(-3px);
         }
-        .stExpander header { font-size: 1.25rem; font-weight: 600; }
+        .stExpander header { 
+            font-size: 1.25rem; 
+            font-weight: 600;
+            color: var(--text-color);
+        }
         .styled-card { padding: 1.5rem; }
 
         /* --- Button Styling --- */
@@ -116,27 +121,40 @@ st.markdown("""
             font-weight: 600;
             transition: all 0.2s ease-in-out;
             background-color: var(--primary-color);
-            color: white;
-            border: none;
+            color: var(--text-color);
+            border: 1px solid var(--primary-color);
         }
         .stButton > button:hover {
             transform: translateY(-2px);
             background-color: var(--primary-hover-color);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border-color: var(--primary-hover-color);
+            box-shadow: 0 4px 12px rgba(212, 163, 115, 0.15);
         }
+        /* Style for secondary/transparent buttons */
+        .stButton > button[kind="secondary"] {
+             background-color: transparent;
+             color: var(--primary-color);
+             border: 1px solid var(--primary-color);
+        }
+         .stButton > button[kind="secondary"]:hover {
+             background-color: var(--primary-hover-color);
+             color: var(--text-color);
+             border-color: var(--primary-hover-color);
+         }
         
         /* --- Grade & Feedback Boxes --- */
         .grade-box {
             padding: 1.5rem; border-radius: 10px; text-align: center;
             margin-bottom: 1rem; border: 1px solid transparent;
+            color: var(--text-color);
         }
         .grade-box h3 { margin: 0 0 0.5rem 0; font-size: 1.1rem; }
         .grade-box .grade-value { margin: 0; font-size: 2.5rem; font-weight: 700; }
-        .ai-grade-box { background-color: #eef7f7; color: #3d8283; border-color: #a7d0d1; }
-        .final-grade-box { background-color: #f3eef7; color: #6a4a9b; border-color: #c4a7d1; }
-        .pending-box { background-color: #f7f3e3; color: #926f0e; border-color: #e3d2a7; }
+        .ai-grade-box { background-color: #e9edc9; border-color: #ccd5ae; }
+        .final-grade-box { background-color: #faedcd; border-color: #d4a373; }
+        .pending-box { background-color: #fefae0; border-color: #d4a373; }
         .feedback-box {
-             background-color: #f8fafc; padding: 1.2rem;
+             background-color: var(--background-color); padding: 1.2rem;
              border-radius: 8px; border: 1px solid var(--border-color);
         }
     </style>
@@ -239,7 +257,7 @@ if 'selected_class' in st.session_state and st.session_state.selected_class:
     with col1:
         st.markdown(f"### 📚 Class Information: {selected_class['name']}")
     with col2:
-        if st.button("🔄 Refresh Data", help="Refresh all class data and submissions"):
+        if st.button("🔄 Refresh Data", help="Refresh all class data and submissions", type="secondary"):
             get_all_classes.clear()
             get_user_submissions_for_class_cached.clear()
             st.rerun()
@@ -328,7 +346,7 @@ if 'selected_class' in st.session_state and st.session_state.selected_class:
     st.markdown("---")
     col1, col2, col3 = st.columns(3)
     with col1:
-        if st.button("Back to All Classes"):
+        if st.button("Back to All Classes", type="secondary"):
             # Clear selection and go back to the main view
             if 'selected_class' in st.session_state: del st.session_state['selected_class']
             if 'selected_class_id' in st.session_state: del st.session_state['selected_class_id']
@@ -337,10 +355,10 @@ if 'selected_class' in st.session_state and st.session_state.selected_class:
             else:
                 st.switch_page("pages/3_Student_View.py")
     with col2:
-        if st.button("View My Grades"):
+        if st.button("View My Grades", type="secondary"):
             st.switch_page("pages/4_Grades_View.py")
     with col3:
-        if st.button("Logout"):
+        if st.button("Logout", key="bottom_logout_home", type="secondary"):
             for key in list(st.session_state.keys()): del st.session_state[key]
             st.switch_page("login.py")
 else:

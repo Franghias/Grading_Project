@@ -70,24 +70,26 @@ st.markdown("""
 
         /* --- Theme & Styles (from login.py) --- */
         :root {
-            --primary-color: #4a9a9b; /* Teal */
-            --primary-hover-color: #3d8283; /* Darker Teal */
-            --background-color: #f0f2f6; /* Light Gray */
-            --card-background-color: #ffffff; /* White */
-            --text-color: #262730; /* Dark Gray */
-            --subtle-text-color: #5E5E5E;
-            --border-color: #e0e0e0;
+            /* New Earthy Palette */
+            --primary-color: #d4a373;         /* Tan (for headings and primary actions) */
+            --primary-hover-color: #faedcd;    /* Sandy Beige (for button hover) */
+            --background-color: #e9edc9;      /* Pale Green/Yellow (main background) */
+            --card-background-color: #fefae0; /* Creamy Yellow (card background) */
+            --text-color: #5d4037;            /* Dark Brown for main text */
+            --subtle-text-color: #8a817c;      /* Muted gray-brown for paragraphs */
+            --border-color: #ccd5ae;          /* Muted Earthy Green (borders) */
         }
         .stApp {
             background-color: var(--background-color);
             font-family: 'Inter', sans-serif;
+            color: var(--text-color);
         }
         
         /* Header styling */
         .stMarkdown h1 {
             font-size: 2.5rem;
             font-weight: 700;
-            color: var(--primary-color);
+            color: var(--text-color);
             text-align: center;
             padding-top: 1rem;
         }
@@ -106,16 +108,17 @@ st.markdown("""
             background-color: var(--card-background-color);
             border: 1px solid var(--border-color);
             border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 4px 12px rgba(212, 163, 115, 0.05);
             margin-bottom: 1rem;
             transition: all 0.3s ease-in-out;
         }
         .stExpander:hover {
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 8px 24px rgba(212, 163, 115, 0.1);
         }
         .stExpander header {
             font-size: 1.2rem;
             font-weight: 600;
+            color: var(--text-color);
         }
 
         /* --- Input and Button Styling with Transitions --- */
@@ -123,34 +126,41 @@ st.markdown("""
             border: 1px solid var(--border-color);
             border-radius: 8px;
             padding: 0.75rem 1rem;
-            background-color: #f9f9f9;
+            background-color: var(--card-background-color);
+            color: var(--text-color);
             transition: all 0.2s ease-in-out;
         }
         .stTextInput > div > div > input:focus, .stTextArea > div > textarea:focus {
             border-color: var(--primary-color);
-            box-shadow: 0 0 0 3px rgba(74, 154, 155, 0.2);
+            box-shadow: 0 0 0 3px rgba(212, 163, 115, 0.2);
         }
 
         .stButton > button {
             background-color: var(--primary-color);
-            color: white;
+            color: var(--text-color);
             border-radius: 8px;
             padding: 0.5rem 1rem;
             font-weight: 600;
-            border: none;
+            border: 1px solid var(--primary-color);
             transition: all 0.2s ease-in-out;
         }
         .stButton > button:hover {
             background-color: var(--primary-hover-color);
+            border-color: var(--primary-hover-color);
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 12px rgba(212, 163, 115, 0.15);
         }
+        /* Style for secondary/transparent buttons */
         .stButton > button[kind="secondary"] {
-             background-color: #6c757d;
+             background-color: transparent;
+             color: var(--primary-color);
+             border: 1px solid var(--primary-color);
         }
          .stButton > button[kind="secondary"]:hover {
-             background-color: #5a6268;
-        }
+             background-color: var(--primary-hover-color);
+             color: var(--text-color);
+             border-color: var(--primary-hover-color);
+         }
     </style>
 """, unsafe_allow_html=True)
 
@@ -327,7 +337,7 @@ with st.sidebar:
     st.page_link('pages/1_Home.py', label='Home', icon='🏠')
     st.page_link('pages/4_Grades_View.py', label='Grades View', icon='📊')
     st.markdown("---")
-    if st.button("Logout", use_container_width=True):
+    if st.button("Logout", use_container_width=True, type="secondary"):
         for key in list(st.session_state.keys()):
             del st.session_state[key]
         st.switch_page("login.py")
@@ -335,7 +345,7 @@ with st.sidebar:
     load_time = time.time() - start_time
     st.markdown("### Performance")
     st.metric("Page Load Time", f"{load_time:.2f}s")
-    if st.button("Clear App Cache"):
+    if st.button("Clear App Cache", type="secondary"):
         st.cache_data.clear()
         st.success("Cache cleared! Refreshing...")
         time.sleep(1)
@@ -346,10 +356,10 @@ with st.sidebar:
 # =========================
 nav_col1, nav_col3 = st.columns(2)
 with nav_col1:
-    if st.button("Refresh Page"):
+    if st.button("Refresh Page", type="secondary"):
         st.rerun()
 with nav_col3:
-    if st.button("Logout"):
+    if st.button("Logout", key="bottom_logout", type="secondary"):
         for key in list(st.session_state.keys()):
             del st.session_state[key]
         st.switch_page("login.py")

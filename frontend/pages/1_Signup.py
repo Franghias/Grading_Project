@@ -54,13 +54,14 @@ st.markdown("""
 
         /* --- Theme & Styles --- */
         :root {
-            --primary-color: #4a9a9b; /* Teal */
-            --primary-hover-color: #3d8283; /* Darker Teal */
-            --background-color: #f0f2f6; /* Light Gray */
-            --card-background-color: #ffffff; /* White */
-            --text-color: #262730; /* Dark Gray */
-            --subtle-text-color: #5E5E5E;
-            --border-color: #e0e0e0;
+            /* New Earthy Palette */
+            --primary-color: #d4a373;         /* Tan (for headings and primary actions) */
+            --primary-hover-color: #faedcd;    /* Sandy Beige (for button hover) */
+            --background-color: #e9edc9;      /* Pale Green/Yellow (main background) */
+            --card-background-color: #fefae0; /* Creamy Yellow (card background) */
+            --text-color: #5d4037;            /* Dark Brown for main text */
+            --subtle-text-color: #8a817c;      /* Muted gray-brown for paragraphs */
+            --border-color: #ccd5ae;          /* Muted Earthy Green (borders) */
         }
         .stApp {
             background-color: var(--background-color);
@@ -72,7 +73,7 @@ st.markdown("""
             background-color: var(--card-background-color);
             padding: 2.5rem;
             border-radius: 12px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 8px 32px rgba(212, 163, 115, 0.1);
             border: 1px solid var(--border-color);
             max-width: 450px;
             margin: 2rem auto; /* Reduced vertical margin to prevent scrolling */
@@ -82,7 +83,7 @@ st.markdown("""
         .login-container h1 {
             font-size: 2rem;
             font-weight: 700;
-            color: var(--primary-color);
+            color: var(--text-color);
             margin-bottom: 0.5rem;
         }
         .login-container p {
@@ -91,21 +92,22 @@ st.markdown("""
         }
 
         /* --- Input and Button Styling --- */
-        .stTextInput > div > div > input {
+        .stTextInput > div > div > input, .stRadio > div {
             border: 1px solid var(--border-color);
             border-radius: 8px;
             padding: 0.75rem 1rem;
-            background-color: #f9f9f9;
+            background-color: var(--card-background-color);
             transition: all 0.2s ease-in-out;
+            color: var(--text-color);
         }
         .stTextInput > div > div > input:focus {
             border-color: var(--primary-color);
-            box-shadow: 0 0 0 3px rgba(74, 154, 155, 0.2);
+            box-shadow: 0 0 0 3px rgba(212, 163, 115, 0.2);
         }
 
         .stButton > button {
             background-color: var(--primary-color);
-            color: white;
+            color: var(--text-color);
             border-radius: 8px;
             padding: 0.75rem 1rem;
             font-weight: 600;
@@ -116,16 +118,17 @@ st.markdown("""
         .stButton > button:hover {
             background-color: var(--primary-hover-color);
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 12px rgba(212, 163, 115, 0.15);
         }
         
         /* --- Requirements Box --- */
         .requirements-box {
-            background-color: #f8f9fa;
+            background-color: var(--background-color);
             padding: 1rem;
             border-radius: 8px;
             margin-bottom: 1.5rem;
             text-align: left;
+            border: 1px solid var(--border-color);
         }
         .requirements-box h3 {
             color: var(--text-color);
@@ -141,6 +144,9 @@ st.markdown("""
         /* --- Login Link --- */
         .login-link {
             margin-top: 1.5rem;
+        }
+        .stRadio label {
+             color: var(--text-color);
         }
     </style>
 """, unsafe_allow_html=True)

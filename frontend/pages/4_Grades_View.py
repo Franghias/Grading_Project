@@ -48,24 +48,27 @@ st.markdown("""
             to { opacity: 1; transform: translateY(0); }
         }
         :root {
-            --primary-color: #4a9a9b;
-            --primary-hover-color: #3d8283;
-            --background-color: #f0f2f6;
-            --card-background-color: #ffffff;
-            --text-color: #262730;
-            --subtle-text-color: #5E5E5E;
-            --border-color: #e0e0e0;
+            /* New Earthy Palette */
+            --primary-color: #d4a373;         /* Tan (for headings and primary actions) */
+            --primary-hover-color: #faedcd;    /* Sandy Beige (for button hover) */
+            --background-color: #e9edc9;      /* Pale Green/Yellow (main background) */
+            --card-background-color: #fefae0; /* Creamy Yellow (card background) */
+            --text-color: #5d4037;            /* Dark Brown for main text */
+            --subtle-text-color: #8a817c;      /* Muted gray-brown for paragraphs */
+            --border-color: #ccd5ae;          /* Muted Earthy Green (borders) */
+            --secondary-color: #ccd5ae;       /* Muted Earthy Green for secondary elements */
         }
         .stApp {
             background-color: var(--background-color);
             font-family: 'Inter', sans-serif;
+            color: var(--text-color);
         }
         .main .block-container {
             padding: 2rem;
             animation: fadeIn 0.5s ease-in-out forwards;
         }
         .page-header h1 {
-            font-size: 2.5rem; font-weight: 700; color: var(--primary-color); text-align: center;
+            font-size: 2.5rem; font-weight: 700; color: var(--text-color); text-align: center;
         }
         .page-header p {
             font-size: 1.1rem; color: var(--subtle-text-color); text-align: center;
@@ -73,12 +76,14 @@ st.markdown("""
         .stButton > button {
             border-radius: 8px; padding: 0.6rem 1.2rem; font-weight: 600;
             transition: all 0.2s ease-in-out;
-            background-color: var(--primary-color); color: white; border: none;
+            background-color: var(--primary-color); color: var(--text-color); 
+            border: 1px solid var(--primary-color);
         }
         .stButton > button:hover {
             transform: translateY(-2px);
             background-color: var(--primary-hover-color);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border-color: var(--primary-hover-color);
+            box-shadow: 0 4px 12px rgba(212, 163, 115, 0.15);
         }
     </style>
 """, unsafe_allow_html=True)
@@ -180,8 +185,8 @@ if st.session_state.user.get('is_professor'):
                 if student_perf.empty:
                     st.info("No graded submissions to show student performance.")
                 else:
-                    fig = px.bar(student_perf, x='user_name', y='professor_grade', title='Average Grade per Student', color='professor_grade', color_continuous_scale='Teal')
-                    fig.update_layout(xaxis_title="Student", yaxis_title="Average Grade", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+                    fig = px.bar(student_perf, x='user_name', y='professor_grade', title='Average Grade per Student', color='professor_grade', color_continuous_scale='YlOrBr')
+                    fig.update_layout(xaxis_title="Student", yaxis_title="Average Grade", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='#5d4037')
                     st.plotly_chart(fig, use_container_width=True)
 
             with tab2:
@@ -191,14 +196,14 @@ if st.session_state.user.get('is_professor'):
                 else:
                     col1, col2 = st.columns(2)
                     with col1:
-                        fig_scatter = px.scatter(df_both_grades, x='ai_grade', y='professor_grade', title='AI vs. Professor Grade Correlation', trendline="ols", trendline_color_override="#d6336c")
-                        fig_scatter.update_layout(xaxis_title="AI Grade", yaxis_title="Professor Final Grade", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+                        fig_scatter = px.scatter(df_both_grades, x='ai_grade', y='professor_grade', title='AI vs. Professor Grade Correlation', trendline="ols", trendline_color_override="#d4a373")
+                        fig_scatter.update_layout(xaxis_title="AI Grade", yaxis_title="Professor Final Grade", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='#5d4037')
                         st.plotly_chart(fig_scatter, use_container_width=True)
                     with col2:
                         fig_hist = go.Figure()
-                        fig_hist.add_trace(go.Histogram(x=df_both_grades['ai_grade'], name='AI Grades', marker_color='#4a9a9b', opacity=0.75))
-                        fig_hist.add_trace(go.Histogram(x=df_both_grades['professor_grade'], name='Professor Grades', marker_color='#3d8283', opacity=0.75))
-                        fig_hist.update_layout(barmode='overlay', title_text='AI vs. Professor Grade Distribution', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+                        fig_hist.add_trace(go.Histogram(x=df_both_grades['ai_grade'], name='AI Grades', marker_color='#d4a373', opacity=0.75))
+                        fig_hist.add_trace(go.Histogram(x=df_both_grades['professor_grade'], name='Professor Grades', marker_color='#ccd5ae', opacity=0.75))
+                        fig_hist.update_layout(barmode='overlay', title_text='AI vs. Professor Grade Distribution', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='#5d4037')
                         fig_hist.update_traces(opacity=0.7)
                         st.plotly_chart(fig_hist, use_container_width=True)
 
@@ -377,9 +382,9 @@ else:
                         fig = px.bar(
                             df_combined, x='assignment_name', y='Grade', color='Type', barmode='group',
                             title='Your Average Grade vs. Class Average (All Classes)',
-                            color_discrete_map={'Your Average': '#4a9a9b', 'Class Average': '#aecdc2'}
+                            color_discrete_map={'Your Average': '#d4a373', 'Class Average': '#ccd5ae'}
                         )
-                        fig.update_layout(xaxis_title="Assignment", yaxis_title="Average Grade", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+                        fig.update_layout(xaxis_title="Assignment", yaxis_title="Average Grade", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='#5d4037')
                         st.plotly_chart(fig, use_container_width=True)
                 else:
                     # Single class comparison
@@ -402,9 +407,9 @@ else:
                         fig = px.bar(
                             df_combined, x='assignment_name', y='Grade', color='Type', barmode='group',
                             title=f'Your Average Grade vs. Class Average - {selected_class_stats["name"]}',
-                            color_discrete_map={'Your Average': '#4a9a9b', 'Class Average': '#aecdc2'}
+                            color_discrete_map={'Your Average': '#d4a373', 'Class Average': '#ccd5ae'}
                         )
-                        fig.update_layout(xaxis_title="Assignment", yaxis_title="Average Grade", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+                        fig.update_layout(xaxis_title="Assignment", yaxis_title="Average Grade", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='#5d4037')
                         st.plotly_chart(fig, use_container_width=True)
                     else:
                         st.info("No class average data available for comparison.")
@@ -422,7 +427,8 @@ else:
                     x='created_at', y='grade', title=title, markers=True,
                     labels={'created_at': 'Submission Date', 'grade': 'Your Grade'}
                 )
-                fig_trend.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+                fig_trend.update_traces(line_color='#d4a373')
+                fig_trend.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='#5d4037')
                 st.plotly_chart(fig_trend, use_container_width=True)
 
             # --- TAB 3: Distribution & Spread ---
@@ -434,9 +440,9 @@ else:
                     fig_hist = px.histogram(
                         df_student, x='grade', nbins=20, title=f"Your Grade Frequency {title_suffix}",
                         labels={'grade': 'Grade Bins', 'count': 'Number of Assignments'},
-                        color_discrete_sequence=['#4a9a9b']
+                        color_discrete_sequence=['#d4a373']
                     )
-                    fig_hist.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+                    fig_hist.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='#5d4037')
                     st.plotly_chart(fig_hist, use_container_width=True)
 
                 with col2:
@@ -445,9 +451,9 @@ else:
                     fig_pie = px.pie(
                         values=grade_counts.values, names=grade_counts.index,
                         title=f"Your Letter Grade Distribution {title_suffix}",
-                        color_discrete_sequence=px.colors.qualitative.Set3
+                        color_discrete_sequence=px.colors.qualitative.Pastel
                     )
-                    fig_pie.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+                    fig_pie.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='#5d4037')
                     st.plotly_chart(fig_pie, use_container_width=True)
                 
                 st.markdown("---")
@@ -456,7 +462,8 @@ else:
                     df_student, x='assignment_name', y='grade',
                     title=f"Your Grade Spread by Assignment {title_suffix}", points="all"
                 )
-                fig_box.update_layout(xaxis_title="Assignment", yaxis_title="Grade", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+                fig_box.update_traces(marker_color='#d4a373')
+                fig_box.update_layout(xaxis_title="Assignment", yaxis_title="Grade", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='#5d4037')
                 st.plotly_chart(fig_box, use_container_width=True)
 
             # --- TAB 4: Performance by Class (only for overall view) ---
@@ -470,7 +477,7 @@ else:
                         title='Your Average Grade by Class', color='Average Grade',
                         color_continuous_scale='RdYlGn'
                     )
-                    fig_class.update_layout(xaxis_title="Class", yaxis_title="Average Grade", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+                    fig_class.update_layout(xaxis_title="Class", yaxis_title="Average Grade", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='#5d4037')
                     st.plotly_chart(fig_class, use_container_width=True)
                     
                     st.markdown("#### Detailed Class Performance")

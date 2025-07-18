@@ -45,80 +45,105 @@ st.markdown("""
 
         /* --- Theme & Styles --- */
         :root {
-            --primary-color: #4a9a9b; /* Teal */
-            --primary-hover-color: #3d8283; /* Darker Teal */
-            --background-color: #f0f2f6; /* Light Gray */
-            --card-background-color: #ffffff; /* White */
-            --text-color: #262730; /* Dark Gray */
-            --subtle-text-color: #5E5E5E;
-            --border-color: #e0e0e0;
+            /* New Earthy Palette */
+            --primary-color: #d4a373;         /* Tan (for headings and primary actions) */
+            --background-color: #e9edc9;      /* Pale Green/Yellow (main background) */
+            --card-background-color: #fefae0; /* Creamy Yellow (card background) */
+            --button-color: #d4a373;          /* Tan (primary buttons) */
+            --button-hover-color: #faedcd;    /* Sandy Beige (button hover) */
+            --input-background: #fefae0;      /* Creamy Yellow (input boxes) */
+            --border-color: #ccd5ae;          /* Muted Earthy Green (borders) */
+            --subtle-text-color: #ccd5ae;     /* Muted Earthy Green (for subtle text) */
+            
+            /* Text colors for readability */
+            --dark-text-color: #5d4037;       /* Dark Brown for main text */
+            --light-text-color: #fefae0;      /* Creamy Yellow for text on dark backgrounds */
         }
         .stApp {
             background-color: var(--background-color);
             font-family: 'Inter', sans-serif;
         }
-
         /* --- Main Login Container with Transition --- */
         .login-container {
             background-color: var(--card-background-color);
             padding: 2.5rem;
             border-radius: 12px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-            border: 1px solid var(--border-color);
+            box-shadow: 0 8px 32px rgba(212, 163, 115, 0.1);
+            border: 1.5px solid var(--border-color);
             max-width: 450px;
             margin: 4rem auto;
             text-align: center;
-            animation: fadeInScaleUp 0.5s ease-in-out forwards; /* Added transition */
+            animation: fadeInScaleUp 0.5s ease-in-out forwards;
         }
         .login-container h1 {
             font-size: 2rem;
             font-weight: 700;
-            color: var(--primary-color);
+            color: var(--dark-text-color);
             margin-bottom: 0.5rem;
+            letter-spacing: 1px;
         }
         .login-container p {
-            color: var(--subtle-text-color);
+            color: #8a817c; /* A slightly darker gray for paragraph text */
             margin-bottom: 2rem;
         }
-
         /* --- Input and Button Styling with Transitions --- */
         .stTextInput > div > div > input {
-            border: 1px solid var(--border-color);
+            border: 1.5px solid var(--border-color);
             border-radius: 8px;
             padding: 0.75rem 1rem;
-            background-color: #f9f9f9;
+            background-color: var(--input-background);
+            color: var(--dark-text-color);
+            font-weight: 500;
             transition: all 0.2s ease-in-out;
         }
         .stTextInput > div > div > input:focus {
             border-color: var(--primary-color);
-            box-shadow: 0 0 0 3px rgba(74, 154, 155, 0.2);
+            box-shadow: 0 0 0 3px rgba(212, 163, 115, 0.2);
         }
-
+        .stTextInput > div > div > input::placeholder {
+            color: var(--subtle-text-color) !important;
+            opacity: 1;
+        }
+        .stTextInput > label {
+            color: var(--dark-text-color) !important;
+        }
+        /* --- Button Styling --- */
         .stButton > button {
-            background-color: var(--primary-color);
-            color: white;
+            background-color: var(--button-color);
+            color: var(--dark-text-color) !important;
             border-radius: 8px;
             padding: 0.75rem 1rem;
             font-weight: 600;
             width: 100%;
             border: none;
-            transition: all 0.2s ease-in-out; /* Added transition */
+            transition: all 0.2s ease-in-out;
+            box-shadow: 0 0 8px rgba(212, 163, 115, 0.1);
         }
         .stButton > button:hover {
-            background-color: var(--primary-hover-color);
-            transform: translateY(-2px); /* Added hover effect */
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1); /* Added shadow for depth */
+            background-color: var(--button-hover-color);
+            color: var(--dark-text-color) !important;
+            box-shadow: 0 4px 16px rgba(212, 163, 115, 0.2);
         }
-        
         /* --- Signup Prompt --- */
         .signup-prompt {
             margin-top: 1.5rem;
-            color: var(--subtle-text-color);
+            color: var(--dark-text-color);
         }
-        
         /* --- Spinner --- */
         .stSpinner > div > div {
             border-top-color: var(--primary-color);
+        }
+        /* --- Alerts and Error Messages --- */
+        .stAlert {
+            border-radius: 8px;
+            border: 1px solid #e63946;
+        }
+        .stAlert, .stAlert * {
+            color: #e63946 !important;
+        }
+        /* --- Headings --- */
+        h1, h2, h3, h4, h5, h6 {
+            color: var(--dark-text-color) !important;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -134,7 +159,7 @@ col1, col2, col3 = st.columns([1, 1.5, 1])
 
 with col2:
     st.markdown('<div class="login-container">', unsafe_allow_html=True)
-    st.markdown('<h1>🎓 CS 1111 Login</h1>', unsafe_allow_html=True)
+    st.markdown('<h1>🎓 Welcome to Grading Project AI Assistant </h1>', unsafe_allow_html=True)
     st.markdown('<p>Welcome back! Please sign in to continue.</p>', unsafe_allow_html=True)
 
     # --- RATE LIMITING LOGIC ---
@@ -202,7 +227,24 @@ with col2:
 
     # --- SIGN-UP BUTTON ---
     st.markdown('<p class="signup-prompt">Don\'t have an account?</p>', unsafe_allow_html=True)
-    if st.button("Sign up here"):
+    signup_btn = st.button("Sign up here", key="signup_btn")
+    # Add a custom class to the last rendered button (Sign up here)
+    st.markdown("""
+        <style>
+        div.stButton > button#signup_btn {
+            background-color: transparent;
+            color: var(--primary-color) !important;
+            border: 2px solid var(--primary-color);
+            box-shadow: none;
+        }
+        div.stButton > button#signup_btn:hover {
+            background-color: var(--button-hover-color);
+            color: var(--dark-text-color) !important;
+            border-color: var(--button-hover-color);
+        }
+        </style>
+    """, unsafe_allow_html=True)
+    if signup_btn:
         st.switch_page("pages/1_Signup.py")
 
     st.markdown('</div>', unsafe_allow_html=True)

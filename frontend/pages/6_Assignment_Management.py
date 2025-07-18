@@ -49,13 +49,13 @@ st.markdown("""
 
         /* --- Theme & Base Styles --- */
         :root {
-            --primary-color: #4a9a9b;
-            --primary-hover-color: #3d8283;
-            --background-color: #f0f2f6;
-            --card-background-color: #ffffff;
-            --text-color: #262730;
-            --subtle-text-color: #5E5E5E;
-            --border-color: #e0e0e0;
+            --primary-color: #d4a373;         /* Tan (for headings and primary actions) */
+            --primary-hover-color: #faedcd;    /* Sandy Beige (for button hover) */
+            --background-color: #e9edc9;      /* Pale Green/Yellow (main background) */
+            --card-background-color: #fefae0; /* Creamy Yellow (card background) */
+            --text-color: #5d4037;            /* Dark Brown for main text */
+            --subtle-text-color: #8a817c;      /* Muted gray-brown for paragraphs */
+            --border-color: #ccd5ae;          /* Muted Earthy Green (borders) */
         }
         .stApp {
             background-color: var(--background-color);
@@ -69,12 +69,13 @@ st.markdown("""
 
         /* --- Header Styling --- */
         .st-emotion-cache-10trblm { /* This targets st.title */
-            color: var(--primary-color);
+            color: var(--text-color);
             padding-bottom: 1rem;
         }
         h2, h3 { /* This targets st.subheader and st.header */
             border-bottom: 2px solid var(--border-color);
             padding-bottom: 0.5rem;
+            color: var(--text-color);
         }
 
         /* --- Custom Card Styling for Assignments --- */
@@ -82,7 +83,7 @@ st.markdown("""
             background-color: var(--card-background-color);
             border: 1px solid var(--border-color);
             border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 4px 12px rgba(212, 163, 115, 0.05);
             padding: 1rem 1.5rem;
             margin-bottom: 1rem;
         }
@@ -94,13 +95,14 @@ st.markdown("""
             font-weight: 600;
             transition: all 0.2s ease-in-out;
             background-color: var(--primary-color);
-            color: white;
-            border: none;
+            color: var(--text-color);
+            border: 1px solid var(--primary-color);
         }
         .stButton > button:hover {
             transform: translateY(-2px);
             background-color: var(--primary-hover-color);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border-color: var(--primary-hover-color);
+            box-shadow: 0 4px 12px rgba(212, 163, 115, 0.15);
         }
         
         /* --- Input Styling --- */
@@ -108,7 +110,8 @@ st.markdown("""
             border: 1px solid var(--border-color);
             border-radius: 8px;
             padding: 0.75rem 1rem;
-            background-color: #f9f9f9;
+            background-color: var(--card-background-color);
+            color: var(--text-color);
         }
     </style>
 """, unsafe_allow_html=True)
@@ -345,7 +348,7 @@ with tab2:
 
 st.markdown("---")
 st.markdown("""
-<div style='text-align: center; color: #666; font-size: 0.8em;'>
+<div style='text-align: center; color: var(--subtle-text-color); font-size: 0.8em;'>
     💡 <strong>Tips:</strong> 
     • Use descriptive assignment names to help students identify tasks easily<br>
     • Provide clear descriptions with requirements and expectations<br>

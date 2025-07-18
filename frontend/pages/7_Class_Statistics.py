@@ -41,76 +41,53 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Hide default sidebar
-st.markdown("""
-    <style>
-        [data-testid="stSidebarNav"] {display: none;}
-        .metric-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 1.5rem;
-            border-radius: 10px;
-            text-align: center;
-            margin: 0.5rem 0;
-        }
-        .metric-value {
-            font-size: 2rem;
-            font-weight: bold;
-            margin: 0.5rem 0;
-        }
-        .metric-label {
-            font-size: 0.9rem;
-            opacity: 0.9;
-        }
-        .chart-container {
-            background: white;
-            border: 1px solid #e2e8f0;
-            border-radius: 10px;
-            padding: 1.5rem;
-            margin: 1rem 0;
-        }
-    </style>
-""", unsafe_allow_html=True)
-
 # =========================
 # Custom CSS Styling
 # =========================
 
 st.markdown("""
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-color: #f8fafc;
-            --text-color: #1a202c;
-            --card-bg: #ffffff;
-            --primary-bg: #4a9a9b;
-            --primary-hover: #3d8283;
-            --border-color: #e2e8f0;
-            --success-color: #10b981;
-            --warning-color: #f59e0b;
-            --danger-color: #ef4444;
+            --primary-color: #d4a373;         /* Tan (for headings and primary actions) */
+            --primary-hover-color: #faedcd;    /* Sandy Beige (for button hover) */
+            --background-color: #e9edc9;      /* Pale Green/Yellow (main background) */
+            --card-background-color: #fefae0; /* Creamy Yellow (card background) */
+            --text-color: #5d4037;            /* Dark Brown for main text */
+            --subtle-text-color: #8a817c;      /* Muted gray-brown for paragraphs */
+            --border-color: #ccd5ae;          /* Muted Earthy Green (borders) */
+            --secondary-color: #ccd5ae;       /* Muted Earthy Green for secondary elements */
         }
+        
+        [data-testid="stSidebarNav"] {display: none;}
+        
         html, body, .stApp {
-            background-color: var(--bg-color);
+            background-color: var(--background-color);
             color: var(--text-color);
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
         }
+
         .header {
-            background: linear-gradient(135deg, #4a9a9b 0%, #3d8283 100%);
+            background-color: var(--card-background-color);
             padding: 2rem;
             text-align: center;
-            color: #ffffff;
+            color: var(--text-color);
             margin-bottom: 2rem;
-            border-radius: 0 0 20px 20px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            border-radius: 15px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 6px -1px rgba(212, 163, 115, 0.1);
         }
-        .card {
-            background-color: var(--card-bg);
+        .header h1, .header p {
+             color: var(--text-color);
+        }
+
+        .card, .chart-container {
+            background-color: var(--card-background-color);
             border: 1px solid var(--border-color);
             border-radius: 15px;
             padding: 1.5rem;
             margin-bottom: 1rem;
-            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+            box-shadow: 0 1px 3px 0 rgba(212, 163, 115, 0.1);
         }
     </style>
 """, unsafe_allow_html=True)
@@ -211,7 +188,7 @@ with col1:
         format_func=lambda x: f"{x['name']} ({x['code']})"
     )
 with col2:
-    if st.button("🔄 Refresh", type="secondary", help="Refresh class statistics"):
+    if st.button("🔄 Refresh", help="Refresh class statistics"):
         st.rerun()
 
 if selected_class:
@@ -301,9 +278,9 @@ if selected_class:
                 df, x='grade', nbins=20,
                 title="Overall Grade Distribution",
                 labels={'grade': 'Grade (%)', 'count': 'Number of Submissions'},
-                color_discrete_sequence=['#4a9a9b']
+                color_discrete_sequence=['#d4a373']
             )
-            fig_hist.update_layout(showlegend=False, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
+            fig_hist.update_layout(showlegend=False, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='#5d4037')
             st.plotly_chart(fig_hist, use_container_width=True)
         
         with col2:
@@ -312,9 +289,9 @@ if selected_class:
             fig_pie = px.pie(
                 values=grade_counts.values, names=grade_counts.index,
                 title="Grade Letter Distribution",
-                color_discrete_sequence=px.colors.qualitative.Set3
+                color_discrete_sequence=px.colors.qualitative.Antique
             )
-            fig_pie.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
+            fig_pie.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='#5d4037')
             st.plotly_chart(fig_pie, use_container_width=True)
         
         # CONSOLIDATED Grade statistics table
@@ -335,9 +312,9 @@ if selected_class:
             assignment_stats, x='assignment_name', y='Average Grade',
             title="Average Grade by Assignment",
             labels={'assignment_name': 'Assignment', 'Average Grade': 'Average Grade (%)'},
-            color='Average Grade', color_continuous_scale='RdYlGn'
+            color='Average Grade', color_continuous_scale='YlOrBr'
         )
-        fig_assignment.update_layout(xaxis_tickangle=-45, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
+        fig_assignment.update_layout(xaxis_tickangle=-45, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='#5d4037')
         st.plotly_chart(fig_assignment, use_container_width=True)
         
         st.markdown("### 📋 Assignment Statistics")
@@ -352,9 +329,9 @@ if selected_class:
             student_stats, x='Average Grade', nbins=15,
             title="Distribution of Student Average Grades",
             labels={'Average Grade': 'Average Grade Bins', 'count': 'Number of Students'},
-            color_discrete_sequence=['#3d8283']
+            color_discrete_sequence=['#d4a373']
         )
-        fig_student_dist.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
+        fig_student_dist.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='#5d4037')
         st.plotly_chart(fig_student_dist, use_container_width=True)
         
         st.markdown("### 📋 Detailed Student Statistics")
@@ -376,19 +353,19 @@ if selected_class:
                 fig_scatter = px.scatter(
                     df_both_grades, x='ai_grade', y='professor_grade',
                     title='AI vs. Professor Grade Correlation',
-                    trendline="ols", trendline_color_override="#d6336c",
+                    trendline="ols", trendline_color_override="#d4a373",
                     labels={'ai_grade': 'AI Grade', 'professor_grade': 'Professor Final Grade'}
                 )
-                fig_scatter.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+                fig_scatter.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='#5d4037')
                 st.plotly_chart(fig_scatter, use_container_width=True)
             
             with col2:
                 fig_hist_comp = go.Figure()
-                fig_hist_comp.add_trace(go.Histogram(x=df_both_grades['ai_grade'], name='AI Grades', marker_color='#4a9a9b', opacity=0.7))
-                fig_hist_comp.add_trace(go.Histogram(x=df_both_grades['professor_grade'], name='Professor Grades', marker_color='#3d8283', opacity=0.7))
+                fig_hist_comp.add_trace(go.Histogram(x=df_both_grades['ai_grade'], name='AI Grades', marker_color='#d4a373', opacity=0.7))
+                fig_hist_comp.add_trace(go.Histogram(x=df_both_grades['professor_grade'], name='Professor Grades', marker_color='#ccd5ae', opacity=0.7))
                 fig_hist_comp.update_layout(
                     barmode='overlay', title_text='AI vs. Professor Grade Distribution',
-                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)'
+                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='#5d4037'
                 )
                 fig_hist_comp.update_traces(opacity=0.75)
                 st.plotly_chart(fig_hist_comp, use_container_width=True)
@@ -405,7 +382,8 @@ if selected_class:
             title="Daily Submission Trends", markers=True,
             labels={'created_at': 'Date'} # Add a label to display 'Date' on the chart
         )
-        fig_trend.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
+        fig_trend.update_traces(line_color='#d4a373')
+        fig_trend.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='#5d4037')
         st.plotly_chart(fig_trend, use_container_width=True)
         
         # The rest of the tab's code remains the same
@@ -417,7 +395,8 @@ if selected_class:
             title="Average Grade Trends Over Time", markers=True,
             labels={'date': 'Date', 'grade': 'Average Grade'}
         )
-        fig_grade_trend.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
+        fig_grade_trend.update_traces(line_color='#ccd5ae')
+        fig_grade_trend.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='#5d4037')
         st.plotly_chart(fig_grade_trend, use_container_width=True)
     
     # =========================
@@ -431,7 +410,7 @@ if selected_class:
     
     with col1:
         # The button is just for display; the download_button below handles the action.
-        st.button("📊 Export Grade Report", type="primary", use_container_width=True)
+        st.button("📊 Export Grade Report", use_container_width=True)
         csv_grades = df.to_csv(index=False)
         st.download_button(
             label="Download Grades as CSV",
@@ -443,7 +422,7 @@ if selected_class:
     
     with col2:
         # The button is just for display; the download_button below handles the action.
-        st.button("📈 Export Statistics Summary", type="secondary", use_container_width=True)
+        st.button("📈 Export Statistics Summary", use_container_width=True)
         csv_stats = student_stats.to_csv(index=False)
         st.download_button(
             label="Download Student Stats as CSV",
