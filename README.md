@@ -204,7 +204,7 @@ Deploy to [Streamlit Community Cloud](https://streamlit.io/cloud) by connecting 
 
 ## License
 
-Check LICENSE file for more details. I work this project with the help from Gemini AI model and Cursor - The AI Code Editor. I learned a lot from AI as they teach my how to code and structure my website.
+Check LICENSE file for more details. I work this project with the help from Gemini AI model and Cursor - The AI Code Editor. I learned a lot from AI as they teach me how to code and structure my website.
 
 ---
 
