@@ -133,10 +133,10 @@ Grading_Project/
 
 - Python 3.11+
 - Docker & Docker Compose
-- Google Cloud SDK (for deployment)
-- Streamlit account (for frontend deployment)
+- Google Cloud SDK (for backend deployment: No need if deploying locally)
+- Streamlit account (for frontend deployment: No need if deploying locally)
 
-### Backend (API)
+### Backend (Docker and PostgreSQL included)
 
 1.  **Install dependencies:**
 
@@ -148,7 +148,7 @@ pip install -r requirements.txt
 
 2.  **Set up environment variables:**
 
-Copy `.env.example` to `.env` and fill in your secrets.
+Create a file called `.env` and fill in your secrets. You can take a look at `os.getenv` to know what environment variables need to have for both backend and frontend. Only need to have **one** `.env` file at the Grading_Project (main) directory.
 
 3.  **Run locally:**
 
@@ -171,11 +171,7 @@ cd frontend
 pip install -r requirements.txt
 ```
 
-2.  **Set up environment variables:**
-
-Copy `.env.example` to `.env` and set `API_URL` to your backend.
-
-3.  **Run locally:**
+2.  **Run locally:**
 
 ```bash
 streamlit run login.py
@@ -208,7 +204,7 @@ Deploy to [Streamlit Community Cloud](https://streamlit.io/cloud) by connecting 
 
 ## License
 
-This project is for educational and research purposes.
+Check LICENSE file for more details. I work this project with the help from Gemini AI model and Cursor - The AI Code Editor. I learned a lot from AI as they teach me how to code and structure my website.
 
 ---
 
