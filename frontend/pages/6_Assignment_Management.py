@@ -105,6 +105,11 @@ st.markdown("""
             box-shadow: 0 4px 12px rgba(212, 163, 115, 0.15);
         }
         
+        .stSelectbox > label {
+            color: var(--text-color) !important;
+            font-weight: 600 !important;
+        }
+
         /* --- Input Styling --- */
         .stTextInput > div > div > input, .stTextArea > div > textarea {
             border: 1px solid var(--border-color);

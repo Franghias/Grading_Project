@@ -121,6 +121,11 @@ st.markdown("""
             color: var(--text-color);
         }
 
+        .stSelectbox > label {
+            color: var(--text-color) !important;
+            font-weight: 600 !important;
+        }
+
         /* --- Input and Button Styling with Transitions --- */
         .stTextInput > div > div > input, .stTextArea > div > textarea {
             border: 1px solid var(--border-color);

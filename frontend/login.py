@@ -83,7 +83,7 @@ st.markdown("""
             letter-spacing: 1px;
         }
         .login-container p {
-            color: #8a817c; /* A slightly darker gray for paragraph text */
+            color: var(--dark-text-color); /* A slightly darker gray for paragraph text */
             margin-bottom: 2rem;
         }
         /* --- Input and Button Styling with Transitions --- */

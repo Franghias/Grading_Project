@@ -84,6 +84,12 @@ st.markdown("""
             font-weight: 600;
             color: var(--text-color);
         }
+
+        .stSelectbox > label {
+            color: var(--text-color) !important;
+            font-weight: 600 !important;
+        }
+            
         .stButton > button {
             border-radius: 8px;
             padding: 0.6rem 1.2rem;

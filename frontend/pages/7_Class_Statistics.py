@@ -89,6 +89,11 @@ st.markdown("""
             margin-bottom: 1rem;
             box-shadow: 0 1px 3px 0 rgba(212, 163, 115, 0.1);
         }
+            
+        .stSelectbox > label {
+            color: var(--text-color) !important;
+            font-weight: 600 !important;
+        }
     </style>
 """, unsafe_allow_html=True)
 

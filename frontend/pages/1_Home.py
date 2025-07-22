@@ -90,7 +90,7 @@ st.markdown("""
         }
         .page-header p {
             font-size: 1.1rem;
-            color: var(--subtle-text-color);
+            color: var(--text-color);
             text-align: center;
         }
 

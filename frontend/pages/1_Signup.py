@@ -87,8 +87,12 @@ st.markdown("""
             margin-bottom: 0.5rem;
         }
         .login-container p {
-            color: var(--subtle-text-color);
+            color: var(--text-color);
             margin-bottom: 1.5rem;
+        }
+
+        .stTextInput > label {
+            color: var(--text-color) !important;
         }
 
         /* --- Input and Button Styling --- */
