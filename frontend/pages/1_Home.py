@@ -114,6 +114,11 @@ st.markdown("""
         }
         .styled-card { padding: 1.5rem; }
 
+        .stTextInput > label {
+            color: var(--text-color) !important;
+            font-weight: 600 !important;
+        }
+
         /* --- Button Styling --- */
         .stButton > button {
             border-radius: 8px;

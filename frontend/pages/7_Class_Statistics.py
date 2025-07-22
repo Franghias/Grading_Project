@@ -94,6 +94,11 @@ st.markdown("""
             color: var(--text-color) !important;
             font-weight: 600 !important;
         }
+            
+        .stTextInput > label {
+            color: var(--text-color) !important;
+            font-weight: 600 !important;
+        }
     </style>
 """, unsafe_allow_html=True)
 

@@ -105,7 +105,8 @@ st.markdown("""
             opacity: 1;
         }
         .stTextInput > label {
-            color: var(--dark-text-color) !important;
+            color: var(--text-color) !important;
+            font-weight: 600 !important;
         }
         /* --- Button Styling --- */
         .stButton > button {

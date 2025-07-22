@@ -93,6 +93,7 @@ st.markdown("""
 
         .stTextInput > label {
             color: var(--text-color) !important;
+            font-weight: 600 !important;
         }
 
         /* --- Input and Button Styling --- */

@@ -129,6 +129,11 @@ st.markdown("""
             font-weight: 600 !important;
         }
 
+        .stTextInput > label {
+            color: var(--text-color) !important;
+            font-weight: 600 !important;
+        }
+            
         /* --- Form & Input Styling --- */
         .stTextInput > div > div > input, .stTextArea > div > textarea {
             border: 1px solid var(--border-color);
